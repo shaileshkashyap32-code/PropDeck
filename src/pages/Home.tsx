@@ -14,10 +14,11 @@ interface Project {
   image_url: string | null;
 }
 interface Props {
-  user: any;
-  onLogout: () => void;
-  onViewProject: (id: string) => void;
-  onGoAdmin?: () => void;
+  user: any
+  onLogout: () => void
+  onViewProject: (id: string) => void
+  onGoAdmin?: () => void
+  onGoProfile: () => void
 }
 
 const LOCS = [
@@ -113,12 +114,7 @@ function DualSlider({
   );
 }
 
-export default function Home({
-  user,
-  onLogout,
-  onViewProject,
-  onGoAdmin,
-}: Props) {
+export default function Home({ user, onLogout, onViewProject, onGoAdmin, onGoProfile }: Props) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -278,20 +274,11 @@ export default function Home({
             </button>
           )}
           <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg,#4F46E5,#9333EA)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 13,
-            }}
-          >
-            {user.name?.charAt(0).toUpperCase()}
-          </div>
+  onClick={onGoProfile}
+  title="My Profile & WhatsApp Setup"
+  style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+  {user.name?.charAt(0).toUpperCase()}
+</div>
           <span style={{ fontSize: 13, color: '#A5B4FC' }}>{user.name}</span>
           <button
             onClick={onLogout}
