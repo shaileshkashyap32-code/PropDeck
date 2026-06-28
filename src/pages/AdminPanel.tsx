@@ -119,17 +119,19 @@ Key Highlights: ${usps.length > 0 ? usps.join(', ') : 'N/A'}
 Write ONLY the pitch script. No labels, no intro text, no explanation.`
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 300,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      })
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      )
       const data = await res.json()
-      const script = data.content?.[0]?.text?.trim() || ''
+      const script = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
       if (script) { setF('pitch_script', script); flash('✅ Pitch script generated!') }
       else { flash('Could not generate. Try again.', 'err') }
     } catch {
