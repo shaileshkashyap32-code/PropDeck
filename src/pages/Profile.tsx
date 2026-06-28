@@ -1,140 +1,202 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
-interface Props {
-  user: any
-  onBack: () => void
-  onLogout: () => void
+interface Salesperson {
+  id: string;
+  name: string;
+  mobile_number: string;
+  role: string;
 }
 
 interface Project {
-  id: string
-  name: string
-  developer: string
+  id: string;
+  name: string;
+  developer: string;
+  location: string;
+  price_min: number;
+  price_max: number;
 }
 
-export default function Profile({ user, onBack, onLogout }: Props) {
-  const [projects, setProjects] = useState<Project[]>([])
-  const [templates, setTemplates] = useState<Record<string, string>>({})
-  const [saving, setSaving] = useState<string | null>(null)
-  const [saved, setSaved] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+interface ProfileProps {
+  user: Salesperson;
+  onBack: () => void;
+  onLogout: () => void;
+}
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: projs } = await supabase
+type SaveStatus = 'saved' | 'error' | null;
+
+export default function Profile({ user, onBack, onLogout }: ProfileProps) {
+  const [projects, setProjects]     = useState<Project[]>([]);
+  const [templates, setTemplates]   = useState<Record<string, string>>({});
+  const [saving, setSaving]         = useState<Record<string, boolean>>({});
+  const [saveStatus, setSaveStatus] = useState<Record<string, SaveStatus>>({});
+  const [loading, setLoading]       = useState(true);
+
+  useEffect(() => { fetchData(); }, []);
+
+  async function fetchData() {
+    setLoading(true);
+    const [{ data: projectsData }, { data: templatesData }] = await Promise.all([
+      supabase
         .from('projects')
-        .select('id,name,developer')
-        .order('name')
-
-      const { data: tmps } = await supabase
+        .select('id, name, developer, location, price_min, price_max')
+        .order('name'),
+      supabase
         .from('whatsapp_templates')
-        .select('project_id,message')
-        .eq('salesperson_id', user.id)
-
-      setProjects(projs as Project[] || [])
-      const map: Record<string, string> = {}
-      ;((tmps || []) as any[]).forEach(t => { map[t.project_id] = t.message })
-      setTemplates(map)
-      setLoading(false)
+        .select('project_id, message')
+        .eq('salesperson_id', user.id),
+    ]);
+    if (projectsData) setProjects(projectsData);
+    if (templatesData) {
+      const map: Record<string, string> = {};
+      templatesData.forEach((t: { project_id: string; message: string }) => {
+        map[t.project_id] = t.message;
+      });
+      setTemplates(map);
     }
-    load()
-  }, [user.id])
+    setLoading(false);
+  }
 
-  const saveTemplate = async (projectId: string) => {
-    const message = templates[projectId]
-    if (!message?.trim()) return
-    setSaving(projectId)
-    await supabase.from('whatsapp_templates').upsert({
-      salesperson_id: user.id,
-      project_id: projectId,
-      message: message.trim()
-    }, { onConflict: 'salesperson_id,project_id' })
-    setSaving(null)
-    setSaved(projectId)
-    setTimeout(() => setSaved(null), 2000)
+  async function saveTemplate(projectId: string) {
+    const message = templates[projectId]?.trim();
+    if (!message) return;
+    setSaving(prev => ({ ...prev, [projectId]: true }));
+    setSaveStatus(prev => ({ ...prev, [projectId]: null }));
+    const { error } = await supabase
+      .from('whatsapp_templates')
+      .upsert(
+        { salesperson_id: user.id, project_id: projectId, message },
+        { onConflict: 'salesperson_id,project_id' }
+      );
+    setSaving(prev => ({ ...prev, [projectId]: false }));
+    if (error) {
+      setSaveStatus(prev => ({ ...prev, [projectId]: 'error' }));
+    } else {
+      setSaveStatus(prev => ({ ...prev, [projectId]: 'saved' }));
+      setTimeout(() => setSaveStatus(prev => ({ ...prev, [projectId]: null })), 2500);
+    }
+  }
+
+  function formatPrice(price: number): string {
+    if (price >= 10_000_000) return `₹${(price / 10_000_000).toFixed(1)}Cr`;
+    return `₹${(price / 100_000).toFixed(0)}L`;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #0F0C29, #1E1B4B)' }}>
+        <p className="text-indigo-300 text-sm animate-pulse">Loading profile…</p>
+      </div>
+    );
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0F0C29,#1E1B4B)', color: 'white', display: 'flex', flexDirection: 'column' }}>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0F0C29, #1E1B4B)' }}>
 
-      {/* NAV */}
-      <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(12px)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>P</div>
-          <span style={{ fontWeight: 700, fontSize: 17, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PropDeck</span>
-        </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <button onClick={onBack} style={{ background: 'rgba(79,70,229,0.2)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 7, padding: '6px 16px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>← Back</button>
-          <span style={{ fontSize: 13, color: '#A5B4FC' }}>{user.name}</span>
-          <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 6, padding: '6px 14px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Logout</button>
-        </div>
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 h-14 flex items-center justify-between px-4 backdrop-blur-md"
+        style={{ background: 'rgba(15,12,41,0.85)', borderBottom: '1px solid rgba(79,70,229,0.2)' }}>
+        <button onClick={onBack}
+          className="flex items-center gap-1.5 text-sm text-indigo-300 hover:text-white transition-colors">
+          ← Back
+        </button>
+        <span className="text-white font-semibold text-sm">My Profile</span>
+        <button onClick={onLogout}
+          className="text-xs text-red-400 hover:text-red-300 transition-colors">
+          Logout
+        </button>
       </nav>
 
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: 32, width: '100%', boxSizing: 'border-box' }}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
 
-        {/* Profile Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 22 }}>
-            {user.name?.charAt(0).toUpperCase()}
+        {/* User Card */}
+        <div className="rounded-2xl p-5 flex items-center gap-4"
+          style={{ background: 'rgba(30,27,75,0.8)', border: '1px solid rgba(79,70,229,0.2)' }}>
+          <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #4F46E5, #9333EA)' }}>
+            {user.name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{user.name}</div>
-            <div style={{ fontSize: 14, color: '#94A3B8', marginTop: 2 }}>{user.mobile_number} · {user.role}</div>
+            <h2 className="text-white font-bold text-lg leading-tight">{user.name}</h2>
+            <p className="text-indigo-300 text-sm">{user.mobile_number}</p>
+            <span className="inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium"
+              style={{
+                background: user.role === 'admin' ? 'rgba(79,70,229,0.25)' : 'rgba(16,185,129,0.2)',
+                color: user.role === 'admin' ? '#A5B4FC' : '#10B981',
+              }}>
+              {user.role === 'admin' ? '⚙ Admin' : '👤 Salesperson'}
+            </span>
           </div>
         </div>
 
-        {/* WA Templates */}
-        <div style={{ background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 14, padding: 24 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#A5B4FC', marginBottom: 6 }}>💬 WhatsApp Message Templates</div>
-          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Set a custom message per project. WhatsApp button activates once message is saved.</div>
+        {/* WhatsApp Templates */}
+        <div>
+          <h3 className="text-white font-semibold text-base mb-1">WhatsApp Message Templates</h3>
+          <p className="text-sm mb-4" style={{ color: '#94A3B8' }}>
+            Set a personalised message per project. It auto-fills when you tap{' '}
+            <span className="text-indigo-300">Send to Client</span> on the project page.
+          </p>
 
-          <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 24, fontSize: 13, color: '#FCD34D' }}>
-            💡 Include project name, price, your name and contact number.
-          </div>
+          <div className="space-y-3">
+            {projects.map(project => {
+              const currentMsg = templates[project.id] ?? '';
+              const isSet    = currentMsg.trim().length > 0;
+              const isSaving = !!saving[project.id];
+              const status   = saveStatus[project.id] ?? null;
 
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: 40, color: '#A5B4FC' }}>Loading projects...</div>
-          ) : projects.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: '#64748B' }}>No projects found.</div>
-          ) : (
-            projects.map(p => {
-              const hasMsg = templates[p.id]?.trim()
-              const isSaving = saving === p.id
-              const isSaved = saved === p.id
               return (
-                <div key={p.id} style={{ marginBottom: 20, background: 'rgba(30,27,75,0.6)', borderRadius: 12, padding: 18, border: `1px solid ${hasMsg ? 'rgba(16,185,129,0.3)' : 'rgba(79,70,229,0.2)'}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 15 }}>{p.name}</div>
-                      <div style={{ fontSize: 12, color: '#6366F1', marginTop: 2 }}>{p.developer}</div>
+                <div key={project.id} className="rounded-xl p-4"
+                  style={{ background: 'rgba(30,27,75,0.75)', border: '1px solid rgba(79,70,229,0.18)' }}>
+
+                  {/* Project header */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <p className="text-white font-medium text-sm truncate">{project.name}</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#A5B4FC' }}>
+                        {project.developer} · {project.location} · {formatPrice(project.price_min)}–{formatPrice(project.price_max)}
+                      </p>
                     </div>
-                    {hasMsg
-                      ? <span style={{ fontSize: 11, background: 'rgba(16,185,129,0.2)', color: '#10B981', padding: '3px 10px', borderRadius: 20 }}>✓ Set</span>
-                      : <span style={{ fontSize: 11, background: 'rgba(245,158,11,0.15)', color: '#F59E0B', padding: '3px 10px', borderRadius: 20 }}>Not set</span>}
+                    <span className="flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full"
+                      style={{
+                        background: isSet ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.12)',
+                        color: isSet ? '#10B981' : '#F59E0B',
+                      }}>
+                      {isSet ? '✓ Set' : 'Not set'}
+                    </span>
                   </div>
+
+                  {/* Textarea */}
                   <textarea
-                    value={templates[p.id] || ''}
-                    onChange={e => setTemplates(t => ({ ...t, [p.id]: e.target.value }))}
-                    placeholder={`Hi! I'm ${user.name} from Vishal Realty.\n\nProject: ${p.name}\n📍 Location | 💰 Price\n\nCall me: ${user.mobile_number}`}
-                    style={{ width: '100%', background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(79,70,229,0.3)', borderRadius: 8, padding: '10px 12px', color: 'white', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7, minHeight: 100, boxSizing: 'border-box' }}
+                    value={currentMsg}
+                    onChange={e => setTemplates(prev => ({ ...prev, [project.id]: e.target.value }))}
+                    placeholder={`Hi [Name], sharing details on ${project.name} by ${project.developer}. Starts at ${formatPrice(project.price_min)} in ${project.location}. Want to know more?`}
+                    rows={3}
+                    className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                    style={{ background: 'rgba(15,12,41,0.55)', border: '1px solid rgba(79,70,229,0.22)' }}
                   />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-                    <span style={{ fontSize: 11, color: '#475569' }}>{(templates[p.id] || '').length} chars</span>
+
+                  {/* Save row */}
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs"
+                      style={{ color: status === 'error' ? '#F87171' : status === 'saved' ? '#10B981' : 'transparent' }}>
+                      {status === 'error' ? '✗ Save failed — try again' : status === 'saved' ? '✓ Saved' : '·'}
+                    </span>
                     <button
-                      onClick={() => saveTemplate(p.id)}
-                      disabled={isSaving || !templates[p.id]?.trim()}
-                      style={{ background: isSaved ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg,#4F46E5,#9333EA)', border: isSaved ? '1px solid #10B981' : 'none', borderRadius: 7, padding: '8px 20px', color: isSaved ? '#10B981' : 'white', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
-                    >
-                      {isSaved ? '✅ Saved!' : isSaving ? 'Saving...' : 'Save Message'}
+                      onClick={() => saveTemplate(project.id)}
+                      disabled={isSaving || !currentMsg.trim()}
+                      className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ background: status === 'saved' ? '#10B981' : 'linear-gradient(135deg, #4F46E5, #9333EA)' }}>
+                      {isSaving ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save Message'}
                     </button>
                   </div>
                 </div>
-              )
-            })
-          )}
+              );
+            })}
+          </div>
         </div>
+
       </div>
     </div>
-  )
+  );
 }
