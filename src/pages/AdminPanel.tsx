@@ -80,12 +80,63 @@ export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
   const [addLocIsDuplicate, setAddLocIsDuplicate] = useState(false)
   const [addLocForce, setAddLocForce] = useState(false)
   const [formLocWarning, setFormLocWarning] = useState('')
+  const [generatingScript, setGeneratingScript] = useState(false)
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  const generatePitchScript = async () => {
+    if (!form.name || !form.developer || !form.location) {
+      flash('Fill in Project Name, Developer, and Location first.', 'err'); return
+    }
+    setGeneratingScript(true)
+    const usps = [form.usp1, form.usp2, form.usp3, form.usp4, form.usp5].filter(Boolean)
+    const priceMin = Number(form.price_min)
+    const priceMax = Number(form.price_max)
+    const fmtP = (n: number) => n >= 10000000 ? `₹${(n/10000000).toFixed(1)}Cr` : `₹${(n/100000).toFixed(0)}L`
+    const prompt = `You are an expert real estate sales trainer in Bangalore, India.
+
+Generate a confident, conversational 4-5 line pitch script for a salesperson to use on a LIVE PHONE CALL with a potential buyer. Rules:
+- Write in first person as if the salesperson is speaking directly to the client
+- Be specific — use the actual project name, location, price, and highlights
+- Sound natural and persuasive, NOT like a brochure
+- End with a soft call to action (site visit or sharing more details)
+- Keep it under 80 words total
+
+Project:
+Name: ${form.name}
+Developer: ${form.developer}
+Location: ${form.location}
+Price: ${priceMin ? fmtP(priceMin) : 'N/A'}${priceMax ? ` – ${fmtP(priceMax)}` : ''}
+BHK Types: ${form.bhk_types.length > 0 ? form.bhk_types.join(', ') : 'N/A'}
+Status: ${form.status}
+Possession: ${form.possession_date || 'TBD'}
+Key Highlights: ${usps.length > 0 ? usps.join(', ') : 'N/A'}
+
+Write ONLY the pitch script. No labels, no intro text, no explanation.`
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 300,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      })
+      const data = await res.json()
+      const script = data.content?.[0]?.text?.trim() || ''
+      if (script) { setF('pitch_script', script); flash('✅ Pitch script generated!') }
+      else { flash('Could not generate. Try again.', 'err') }
+    } catch {
+      flash('API error. Check connection.', 'err')
+    }
+    setGeneratingScript(false)
+  }
 
   const loadProjects = async () => {
     const { data } = await supabase.from('projects').select('*').order('name')
@@ -479,11 +530,19 @@ export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
               </div>
 
               <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 10 }}>⑥ Pitch Script</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>⑥ Pitch Script</span>
+                  <button
+                    onClick={generatePitchScript}
+                    disabled={generatingScript || !form.name}
+                    style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 7, padding: '6px 14px', color: 'white', fontSize: 12, fontWeight: 600, cursor: generatingScript || !form.name ? 'default' : 'pointer', opacity: !form.name ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    {generatingScript ? '⏳ Generating…' : '✨ Generate with AI'}
+                  </button>
+                </div>
                 <textarea style={{ ...inp, height: 120, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
                   value={form.pitch_script} onChange={e => setF('pitch_script', e.target.value)}
-                  placeholder="3-5 lines a salesperson can say on a live call..." />
-                <div style={{ fontSize: 11, color: '#475569', marginTop: 5 }}>{form.pitch_script.length} chars</div>
+                  placeholder="Write manually or click ✨ Generate with AI above…" />
+                <div style={{ fontSize: 11, color: '#475569', marginTop: 5 }}>{form.pitch_script.length} chars · You can edit the generated script before saving</div>
               </div>
 
               <div style={{ marginBottom: 24 }}>
