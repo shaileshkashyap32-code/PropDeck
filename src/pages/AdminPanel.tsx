@@ -143,8 +143,13 @@ export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
   }
 
   const safeJSON = (raw: string) => {
-    try { return JSON.parse(raw.replace(/```json|```/g, '').trim()) }
-    catch { return null }
+    const strip = (s: string) => s.replace(/```json|```/g, '').trim()
+    try { return JSON.parse(strip(raw)) } catch {}
+    try {
+      const m = raw.match(/\{[\s\S]*\}/)
+      if (m) return JSON.parse(m[0])
+    } catch {}
+    return null
   }
 
   // ─── Quick Fill with AI ───────────────────────────────────────────────────
@@ -420,6 +425,7 @@ Write ONLY the pitch script. No labels or preamble.`
 
     const payload: any = {
       name: form.name, developer: form.developer, location: form.location,
+      area: form.location,
       rera_number: form.rera_number || null, status: form.status,
       possession_date: form.possession_date,
       price_min: Math.min(...allPrices),
