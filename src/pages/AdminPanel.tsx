@@ -13,17 +13,22 @@ interface Project {
   bhk_types: string[]; possession_date: string
 }
 
-interface Location {
+interface LocItem {
   id: number
   name: string
+}
+
+interface UnitConfig {
+  type: string
+  price_min: string
+  price_max: string
+  sba_min: string
+  sba_max: string
 }
 
 interface FormData {
   name: string; developer: string; location: string
   rera_number: string; status: string; possession_date: string
-  price_min: string; price_max: string
-  carpet_area_min: string; carpet_area_max: string
-  bhk_types: string[]
   usp1: string; usp2: string; usp3: string; usp4: string; usp5: string
   pitch_script: string; image_url: string; google_maps_url: string; tags: string
   lm1_name: string; lm1_dist: string; lm1_type: string
@@ -35,8 +40,6 @@ interface FormData {
 const EMPTY: FormData = {
   name: '', developer: '', location: '', rera_number: '',
   status: 'Under Construction', possession_date: '',
-  price_min: '', price_max: '', carpet_area_min: '', carpet_area_max: '',
-  bhk_types: [],
   usp1: '', usp2: '', usp3: '', usp4: '', usp5: '',
   pitch_script: '', image_url: '', google_maps_url: '', tags: '',
   lm1_name: '', lm1_dist: '', lm1_type: 'Metro',
@@ -45,16 +48,23 @@ const EMPTY: FormData = {
   lm4_name: '', lm4_dist: '', lm4_type: 'IT Park',
 }
 
-const BHKS = ['Studio','1BHK','2BHK','2.5BHK','3BHK','4BHK','Villa','Plot']
+const EMPTY_UNIT: UnitConfig = { type: '', price_min: '', price_max: '', sba_min: '', sba_max: '' }
+const UNIT_TYPES = ['Studio','1BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Penthouse','Villa','Townhouse','Plot']
 const LM_TYPES = ['Metro','School','Hospital','IT Park','Mall','Airport','Highway','Other']
 
-const inp: React.CSSProperties = { width: '100%', background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(79,70,229,0.3)', borderRadius: 8, padding: '9px 12px', color: 'white', fontSize: 14, outline: 'none', boxSizing: 'border-box' }
+const inp: React.CSSProperties = {
+  width: '100%', background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(79,70,229,0.3)',
+  borderRadius: 8, padding: '9px 12px', color: 'white', fontSize: 14, outline: 'none', boxSizing: 'border-box'
+}
 const lbl: React.CSSProperties = { fontSize: 12, color: '#94A3B8', marginBottom: 6, display: 'block' }
-const card: React.CSSProperties = { background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 12, padding: 20, marginBottom: 20 }
+const card: React.CSSProperties = {
+  background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)',
+  borderRadius: 12, padding: 20, marginBottom: 20
+}
 
 function fmt(n: number) {
-  if (n >= 10000000) return `₹${(n/10000000).toFixed(1)}Cr`
-  if (n >= 100000) return `₹${(n/100000).toFixed(0)}L`
+  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`
+  if (n >= 100000) return `₹${(n / 100000).toFixed(0)}L`
   return `₹${n}`
 }
 
@@ -71,80 +81,29 @@ export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
   const [newMobile, setNewMobile] = useState('')
   const [newPass, setNewPass] = useState('')
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
-
-  // Locations state
-  const [locations, setLocations] = useState<Location[]>([])
+  const [locations, setLocations] = useState<LocItem[]>([])
   const [locationCounts, setLocationCounts] = useState<Record<string, number>>({})
   const [newLocation, setNewLocation] = useState('')
   const [addLocWarning, setAddLocWarning] = useState('')
   const [addLocIsDuplicate, setAddLocIsDuplicate] = useState(false)
   const [addLocForce, setAddLocForce] = useState(false)
   const [formLocWarning, setFormLocWarning] = useState('')
+  const [unitConfigs, setUnitConfigs] = useState<UnitConfig[]>([{ ...EMPTY_UNIT }])
+  const [quickFillText, setQuickFillText] = useState('')
+  const [generatingFill, setGeneratingFill] = useState(false)
   const [generatingScript, setGeneratingScript] = useState(false)
+  const [generatingPersonas, setGeneratingPersonas] = useState(false)
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    const h = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
   }, [])
-
-  const generatePitchScript = async () => {
-    if (!form.name || !form.developer || !form.location) {
-      flash('Fill in Project Name, Developer, and Location first.', 'err'); return
-    }
-    setGeneratingScript(true)
-    const usps = [form.usp1, form.usp2, form.usp3, form.usp4, form.usp5].filter(Boolean)
-    const priceMin = Number(form.price_min)
-    const priceMax = Number(form.price_max)
-    const fmtP = (n: number) => n >= 10000000 ? `₹${(n/10000000).toFixed(1)}Cr` : `₹${(n/100000).toFixed(0)}L`
-    const prompt = `You are an expert real estate sales trainer in Bangalore, India.
-
-Generate a confident, conversational 4-5 line pitch script for a salesperson to use on a LIVE PHONE CALL with a potential buyer. Rules:
-- Write in first person as if the salesperson is speaking directly to the client
-- Be specific — use the actual project name, location, price, and highlights
-- Sound natural and persuasive, NOT like a brochure
-- End with a soft call to action (site visit or sharing more details)
-- Keep it under 80 words total
-
-Project:
-Name: ${form.name}
-Developer: ${form.developer}
-Location: ${form.location}
-Price: ${priceMin ? fmtP(priceMin) : 'N/A'}${priceMax ? ` – ${fmtP(priceMax)}` : ''}
-BHK Types: ${form.bhk_types.length > 0 ? form.bhk_types.join(', ') : 'N/A'}
-Status: ${form.status}
-Possession: ${form.possession_date || 'TBD'}
-Key Highlights: ${usps.length > 0 ? usps.join(', ') : 'N/A'}
-
-Write ONLY the pitch script. No labels, no intro text, no explanation.`
-
-    try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
-        }
-      )
-      const data = await res.json()
-      const script = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
-      if (script) { setF('pitch_script', script); flash('✅ Pitch script generated!') }
-      else { flash('Could not generate. Try again.', 'err') }
-    } catch {
-      flash('API error. Check connection.', 'err')
-    }
-    setGeneratingScript(false)
-  }
 
   const loadProjects = async () => {
     const { data } = await supabase.from('projects').select('*').order('name')
     const rows = (data as Project[]) || []
     setProjects(rows)
-    // rebuild location counts from live project data
     const counts: Record<string, number> = {}
     rows.forEach(p => { counts[p.location] = (counts[p.location] || 0) + 1 })
     setLocationCounts(counts)
@@ -152,7 +111,7 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
 
   const loadLocations = async () => {
     const { data } = await supabase.from('locations').select('*').order('name')
-    setLocations((data as Location[]) || [])
+    setLocations((data as LocItem[]) || [])
   }
 
   const loadTeam = async () => {
@@ -163,29 +122,196 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
   useEffect(() => { loadProjects(); loadTeam(); loadLocations() }, [])
 
   const flash = (m: string, t: 'ok' | 'err' = 'ok') => {
-    setMsg(m); setMsgType(t)
-    setTimeout(() => setMsg(''), 3000)
+    setMsg(m); setMsgType(t); setTimeout(() => setMsg(''), 5000)
   }
 
   const setF = (k: keyof FormData, v: any) => setForm(f => ({ ...f, [k]: v }))
-  const toggleBHK = (b: string) => setF('bhk_types', form.bhk_types.includes(b) ? form.bhk_types.filter((x: string) => x !== b) : [...form.bhk_types, b])
 
-  // Find fuzzy match against existing locations
-  const findSimilar = (typed: string, locs: Location[]) => {
-    const t = typed.toLowerCase().trim()
-    return locs.find(l => {
-      const e = l.name.toLowerCase()
-      return e !== t && (e.includes(t) || t.includes(e))
-    })
+  // ─── Gemini helper ────────────────────────────────────────────────────────
+  const callGemini = async (prompt: string): Promise<string> => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      }
+    )
+    const data = await res.json()
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
   }
 
-  // Form location combobox handler
+  const safeJSON = (raw: string) => {
+    try { return JSON.parse(raw.replace(/```json|```/g, '').trim()) }
+    catch { return null }
+  }
+
+  // ─── Quick Fill with AI ───────────────────────────────────────────────────
+  const extractWithAI = async () => {
+    if (!quickFillText.trim()) { flash('Paste some project info first.', 'err'); return }
+    setGeneratingFill(true)
+    const prompt = `You are a real estate data extraction expert for Bangalore, India.
+
+Extract project details from the text below and return ONLY a valid JSON object (no markdown, no explanation).
+
+Required JSON structure:
+{
+  "name": "full project name",
+  "developer": "developer/builder name",
+  "location": "micro-market area only (e.g. Sadahalli, Whitefield, Sarjapur Road — NOT full address)",
+  "rera_number": "RERA number if present else empty string",
+  "status": "Under Construction or Ready to Move",
+  "possession_date": "possession timeline if mentioned else empty string",
+  "unit_configs": [
+    {
+      "type": "one of: Studio, 1BHK, 2BHK, 2.5BHK, 3BHK, 3.5BHK, 4BHK, Penthouse, Villa, Townhouse, Plot",
+      "price_min": "lowest price for this type as number in rupees (1Cr=10000000, 1L=100000). Empty string if unknown.",
+      "price_max": "highest price for this type as number in rupees. Empty string if unknown.",
+      "sba_min": "minimum super built-up/saleable area in sqft as number. Empty string if unknown.",
+      "sba_max": "maximum super built-up/saleable area in sqft as number. Empty string if unknown."
+    }
+  ],
+  "usps": [
+    "USP 1 — think investor angle (appreciation, rental yield, infrastructure)",
+    "USP 2 — think family/end-user angle (school, hospital, amenities)",
+    "USP 3 — project scale or unique feature",
+    "USP 4 — developer credibility or RERA status",
+    "USP 5 — connectivity or location advantage"
+  ],
+  "landmarks": [
+    {"name": "landmark name", "distance": "X km", "type": "Airport or Metro or School or Hospital or IT Park or Mall or Highway or Other"}
+  ],
+  "tags": ["tag1", "tag2", "tag3"]
+}
+
+Rules:
+- Create one unit_config entry per distinct unit type mentioned
+- For USPs: prioritise facts that a salesperson can say on a live call to different buyer types
+- Include up to 4 landmarks with realistic distances
+- Tags: 3-5 short keywords (e.g. Township, Airport Zone, Premium, NRI Friendly, Investment)
+- Return ONLY the JSON object
+
+Text:
+${quickFillText}`
+
+    try {
+      const raw = await callGemini(prompt)
+      const ex = safeJSON(raw)
+      if (!ex) { flash('AI returned unexpected format. Try again.', 'err'); setGeneratingFill(false); return }
+
+      if (ex.name) setF('name', ex.name)
+      if (ex.developer) setF('developer', ex.developer)
+      if (ex.location) { setF('location', ex.location); setFormLocWarning('') }
+      if (ex.rera_number) setF('rera_number', ex.rera_number)
+      if (ex.status === 'Under Construction' || ex.status === 'Ready to Move') setF('status', ex.status)
+      if (ex.possession_date) setF('possession_date', ex.possession_date)
+      if (Array.isArray(ex.usps)) {
+        const keys: (keyof FormData)[] = ['usp1','usp2','usp3','usp4','usp5']
+        keys.forEach((k, i) => { if (ex.usps[i]) setF(k, ex.usps[i]) })
+      }
+      if (Array.isArray(ex.landmarks)) {
+        ex.landmarks.slice(0, 4).forEach((lm: any, i: number) => {
+          setF(`lm${i+1}_name` as keyof FormData, lm.name || '')
+          setF(`lm${i+1}_dist` as keyof FormData, lm.distance || '')
+          setF(`lm${i+1}_type` as keyof FormData, lm.type || 'Other')
+        })
+      }
+      if (Array.isArray(ex.tags)) setF('tags', ex.tags.join(', '))
+      if (Array.isArray(ex.unit_configs) && ex.unit_configs.length > 0) {
+        setUnitConfigs(ex.unit_configs.map((u: any) => ({
+          type: u.type || '',
+          price_min: String(u.price_min || ''),
+          price_max: String(u.price_max || ''),
+          sba_min: String(u.sba_min || ''),
+          sba_max: String(u.sba_max || ''),
+        })))
+      }
+      flash('✅ Fields filled! Review everything below, then click Publish.')
+    } catch {
+      flash('Extraction failed. Check pasted text and try again.', 'err')
+    }
+    setGeneratingFill(false)
+  }
+
+  // ─── Persona pitch generation ─────────────────────────────────────────────
+  const generatePersonaPitches = async (
+    p: any, configs: UnitConfig[]
+  ): Promise<Record<string, string>> => {
+    const unitLines = configs
+      .filter(u => u.type)
+      .map(u => `  ${u.type}: ${u.price_min ? fmt(Number(u.price_min)) : '?'}${u.price_max ? `–${fmt(Number(u.price_max))}` : ''}, SBA ${u.sba_min || '?'}–${u.sba_max || '?'} sqft`)
+      .join('\n')
+    const lmText = [1,2,3,4]
+      .map(n => p.landmarks?.[n-1]?.name ? `${p.landmarks[n-1].name} (${p.landmarks[n-1].distance})` : null)
+      .filter(Boolean).join(', ')
+
+    const prompt = `You are a top real estate sales trainer in Bangalore, India.
+
+Write 4 short pitch scripts for "${p.name}" by ${p.developer} in ${p.location}.
+Each pitch: 4-5 sentences, conversational first-person, salesperson speaking on a live call.
+Use specific numbers, project name, and location — make it feel real, not generic.
+
+Project:
+- Units & pricing:
+${unitLines || '  Mixed configurations'}
+- Status: ${p.status} · Possession: ${p.possession_date || 'TBD'}
+- Key highlights: ${p.usps?.join(', ')}
+- Nearby: ${lmText || 'Bangalore location'}
+
+Return ONLY this JSON (no markdown):
+{
+  "investor": "pitch targeting investor — focus: rental yield from airport/IT crowd, corridor appreciation, upcoming metro/infrastructure, developer track record, low entry vs future value",
+  "end_user": "pitch targeting family buyer — focus: nearest school and hospital distance, daily convenience, gated community lifestyle, children safety, weekend amenities",
+  "first_time_buyer": "pitch targeting first-time buyer — focus: entry price, estimated EMI, RERA protection, trusted developer brand, possession timeline, future resale value",
+  "nri": "pitch targeting NRI — focus: developer reputation India-wide, rental income potential, NRI home loan availability, property management ease, strong ROI vs overseas investment, emotional India connection"
+}`
+
+    try {
+      const raw = await callGemini(prompt)
+      const parsed = safeJSON(raw)
+      return parsed || { investor: '', end_user: '', first_time_buyer: '', nri: '' }
+    } catch {
+      return { investor: '', end_user: '', first_time_buyer: '', nri: '' }
+    }
+  }
+
+  // ─── Pitch script generation (section ⑥) ─────────────────────────────────
+  const generatePitchScript = async () => {
+    if (!form.name || !form.developer || !form.location) {
+      flash('Fill in Name, Developer, and Location first.', 'err'); return
+    }
+    setGeneratingScript(true)
+    const usps = [form.usp1, form.usp2, form.usp3, form.usp4, form.usp5].filter(Boolean)
+    const unitSummary = unitConfigs.filter(u => u.type && u.price_min)
+      .map(u => `${u.type} from ${fmt(Number(u.price_min))}`).join(', ')
+    const prompt = `Expert real estate sales trainer in Bangalore. Write a confident, conversational 4-5 line pitch script (under 80 words) for a salesperson on a live call. First person. Specific numbers. Soft CTA at end.
+
+Project: ${form.name} | Developer: ${form.developer} | Location: ${form.location}
+${unitSummary ? `Units: ${unitSummary}` : ''}
+Status: ${form.status} | Possession: ${form.possession_date || 'TBD'}
+Highlights: ${usps.join(', ')}
+
+Write ONLY the pitch script. No labels or preamble.`
+
+    try {
+      const script = await callGemini(prompt)
+      if (script) { setF('pitch_script', script); flash('✅ Pitch script generated!') }
+      else flash('No output. Try again.', 'err')
+    } catch { flash('API error.', 'err') }
+    setGeneratingScript(false)
+  }
+
+  // ─── Location helpers ─────────────────────────────────────────────────────
+  const findSimilar = (typed: string, locs: LocItem[]) => {
+    const t = typed.toLowerCase().trim()
+    return locs.find(l => { const e = l.name.toLowerCase(); return e !== t && (e.includes(t) || t.includes(e)) })
+  }
+
   const handleLocationInput = (val: string) => {
-    setF('location', val)
-    setFormLocWarning('')
+    setF('location', val); setFormLocWarning('')
     if (!val.trim()) return
-    const t = val.toLowerCase().trim()
-    const exact = locations.find(l => l.name.toLowerCase() === t)
+    const exact = locations.find(l => l.name.toLowerCase() === val.toLowerCase().trim())
     if (exact) return
     const similar = findSimilar(val, locations)
     if (similar) setFormLocWarning(`Similar to "${similar.name}" — did you mean that?`)
@@ -196,20 +322,12 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
     if (similar) { setF('location', similar.name); setFormLocWarning('') }
   }
 
-  // New location (Locations section) handlers
   const handleNewLocationInput = (val: string) => {
-    setNewLocation(val)
-    setAddLocWarning('')
-    setAddLocIsDuplicate(false)
-    setAddLocForce(false)
+    setNewLocation(val); setAddLocWarning(''); setAddLocIsDuplicate(false); setAddLocForce(false)
     if (!val.trim()) return
     const t = val.toLowerCase().trim()
     const exact = locations.find(l => l.name.toLowerCase() === t)
-    if (exact) {
-      setAddLocWarning(`"${exact.name}" already exists.`)
-      setAddLocIsDuplicate(true)
-      return
-    }
+    if (exact) { setAddLocWarning(`"${exact.name}" already exists.`); setAddLocIsDuplicate(true); return }
     const similar = findSimilar(val, locations)
     if (similar) setAddLocWarning(`Similar to "${similar.name}" — is this intentionally a new location?`)
   }
@@ -226,25 +344,18 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
 
   const deleteLocation = async (id: number, name: string) => {
     const count = locationCounts[name] || 0
-    if (count > 0) {
-      flash(`Cannot delete "${name}" — ${count} project${count > 1 ? 's' : ''} use this location. Reassign them first.`, 'err')
-      return
-    }
+    if (count > 0) { flash(`Cannot delete "${name}" — ${count} project${count > 1 ? 's' : ''} use this location.`, 'err'); return }
     if (!confirm(`Delete "${name}"?`)) return
-    const { error } = await supabase.from('locations').delete().eq('id', id)
-    if (error) { flash('Error: ' + error.message, 'err'); return }
-    flash(`"${name}" removed.`)
-    loadLocations()
+    await supabase.from('locations').delete().eq('id', id)
+    flash(`"${name}" removed.`); loadLocations()
   }
 
+  // ─── Edit project ─────────────────────────────────────────────────────────
   const startEdit = (p: any) => {
     setForm({
       name: p.name || '', developer: p.developer || '', location: p.location || '',
       rera_number: p.rera_number || '', status: p.status || 'Under Construction',
       possession_date: p.possession_date || '',
-      price_min: String(p.price_min || ''), price_max: String(p.price_max || ''),
-      carpet_area_min: String(p.carpet_area_min || ''), carpet_area_max: String(p.carpet_area_max || ''),
-      bhk_types: p.bhk_types || [],
       usp1: p.usps?.[0] || '', usp2: p.usps?.[1] || '', usp3: p.usps?.[2] || '',
       usp4: p.usps?.[3] || '', usp5: p.usps?.[4] || '',
       pitch_script: p.pitch_script || '', image_url: p.image_url || '',
@@ -254,21 +365,50 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
       lm3_name: p.landmarks?.[2]?.name || '', lm3_dist: p.landmarks?.[2]?.distance || '', lm3_type: p.landmarks?.[2]?.type || 'Hospital',
       lm4_name: p.landmarks?.[3]?.name || '', lm4_dist: p.landmarks?.[3]?.distance || '', lm4_type: p.landmarks?.[3]?.type || 'IT Park',
     })
-    setEditId(p.id); setFormLocWarning(''); setSection('add')
+    if (Array.isArray(p.unit_configs) && p.unit_configs.length > 0) {
+      setUnitConfigs(p.unit_configs.map((u: any) => ({
+        type: u.type || '', price_min: String(u.price_min || ''),
+        price_max: String(u.price_max || ''), sba_min: String(u.sba_min || ''), sba_max: String(u.sba_max || ''),
+      })))
+    } else if (Array.isArray(p.bhk_types) && p.bhk_types.length > 0) {
+      setUnitConfigs(p.bhk_types.map((type: string) => ({
+        type, price_min: String(p.price_min || ''), price_max: String(p.price_max || ''),
+        sba_min: '', sba_max: '',
+      })))
+    } else {
+      setUnitConfigs([{ ...EMPTY_UNIT }])
+    }
+    setFormLocWarning(''); setQuickFillText(''); setEditId(p.id); setSection('add')
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this project?')) return
     await supabase.from('projects').delete().eq('id', id)
-    flash('Project deleted.')
-    loadProjects()
+    flash('Project deleted.'); loadProjects()
   }
 
+  // ─── Save project ─────────────────────────────────────────────────────────
   const save = async () => {
-    if (!form.name || !form.developer || !form.location || !form.price_min) {
-      flash('Fill required fields: Name, Developer, Location, Price.', 'err'); return
+    if (!form.name || !form.developer || !form.location) {
+      flash('Fill required: Name, Developer, Location.', 'err'); return
+    }
+    const validConfigs = unitConfigs.filter(u => u.type && u.price_min)
+    if (validConfigs.length === 0) {
+      flash('Add at least one unit type with a price.', 'err'); return
     }
     setSaving(true)
+
+    const unitConfigsData = validConfigs.map(u => ({
+      type: u.type,
+      price_min: Number(u.price_min),
+      price_max: Number(u.price_max || u.price_min),
+      sba_min: u.sba_min ? Number(u.sba_min) : null,
+      sba_max: u.sba_max ? Number(u.sba_max) : null,
+    }))
+
+    const allPrices = unitConfigsData.flatMap(u => [u.price_min, u.price_max])
+    const derivedBhkTypes = [...new Set(unitConfigsData.map(u => u.type))]
+
     const landmarks = [
       { name: form.lm1_name, distance: form.lm1_dist, type: form.lm1_type },
       { name: form.lm2_name, distance: form.lm2_dist, type: form.lm2_type },
@@ -276,36 +416,57 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
       { name: form.lm4_name, distance: form.lm4_dist, type: form.lm4_type },
     ].filter(l => l.name)
 
-    const payload = {
+    const uspsList = [form.usp1, form.usp2, form.usp3, form.usp4, form.usp5].filter(Boolean)
+
+    const payload: any = {
       name: form.name, developer: form.developer, location: form.location,
       rera_number: form.rera_number || null, status: form.status,
       possession_date: form.possession_date,
-      price_min: Number(form.price_min), price_max: Number(form.price_max || form.price_min),
-      carpet_area_min: form.carpet_area_min ? Number(form.carpet_area_min) : null,
-      carpet_area_max: form.carpet_area_max ? Number(form.carpet_area_max) : null,
-      bhk_types: form.bhk_types,
-      usps: [form.usp1, form.usp2, form.usp3, form.usp4, form.usp5].filter(Boolean),
-      landmarks, pitch_script: form.pitch_script || null,
-      image_url: form.image_url || null, google_maps_url: form.google_maps_url || null,
+      price_min: Math.min(...allPrices),
+      price_max: Math.max(...allPrices),
+      carpet_area_min: null, carpet_area_max: null,
+      bhk_types: derivedBhkTypes,
+      unit_configs: unitConfigsData,
+      usps: uspsList,
+      landmarks,
+      pitch_script: form.pitch_script || null,
+      image_url: form.image_url || null,
+      google_maps_url: form.google_maps_url || null,
       tags: form.tags ? form.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : null,
     }
 
-    const { error } = editId
-      ? await supabase.from('projects').update(payload).eq('id', editId)
-      : await supabase.from('projects').insert(payload)
+    let savedId: string | null = editId
+    let saveError: any = null
 
-    setSaving(false)
-    if (error) { flash('Error: ' + error.message, 'err'); return }
-
-    // Auto-add location to locations table if it's genuinely new
-    const locExists = locations.find(l => l.name.toLowerCase() === form.location.toLowerCase())
-    if (!locExists) {
-      await supabase.from('locations').insert({ name: form.location.trim() })
-      loadLocations()
+    if (editId) {
+      const { error } = await supabase.from('projects').update(payload).eq('id', editId)
+      saveError = error
+    } else {
+      const { data, error } = await supabase.from('projects').insert(payload).select('id').single()
+      saveError = error
+      if (data) savedId = (data as any).id
     }
 
-    flash(editId ? '✅ Project updated!' : '✅ Project published!')
+    if (saveError) { setSaving(false); flash('Save error: ' + saveError.message, 'err'); return }
+
+    const locExists = locations.find(l => l.name.toLowerCase() === form.location.toLowerCase())
+    if (!locExists) { await supabase.from('locations').insert({ name: form.location.trim() }); loadLocations() }
+
+    setSaving(false)
+    flash('✅ Project saved! Now generating 4 AI persona pitches (investor, family, first-time, NRI)…')
+    setGeneratingPersonas(true)
+
+    const personas = await generatePersonaPitches({ ...payload, usps: uspsList }, validConfigs)
+
+    if (savedId && (personas.investor || personas.end_user)) {
+      await supabase.from('projects').update({ persona_pitches: personas }).eq('id', savedId)
+    }
+
+    setGeneratingPersonas(false)
+    flash(editId ? '✅ Project updated with 4 AI persona pitches!' : '✅ Project published with 4 AI persona pitches!')
+
     setForm(EMPTY); setEditId(null); setFormLocWarning('')
+    setUnitConfigs([{ ...EMPTY_UNIT }]); setQuickFillText('')
     loadProjects(); setSection('projects')
   }
 
@@ -313,14 +474,22 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
     if (!newName || !newMobile || !newPass) { flash('Fill all fields.', 'err'); return }
     const { error } = await supabase.from('salespersons').insert({ name: newName, mobile_number: newMobile, password: newPass, role: 'salesperson' })
     if (error) { flash('Error: ' + error.message, 'err'); return }
-    flash('✅ Team member added!'); setNewName(''); setNewMobile(''); setNewPass('')
-    loadTeam()
+    flash('✅ Team member added!'); setNewName(''); setNewMobile(''); setNewPass(''); loadTeam()
   }
 
   const removeTeamMember = async (id: string) => {
     if (!confirm('Remove this person?')) return
-    await supabase.from('salespersons').delete().eq('id', id)
-    loadTeam()
+    await supabase.from('salespersons').delete().eq('id', id); loadTeam()
+  }
+
+  const updateUnit = (idx: number, field: keyof UnitConfig, val: string) =>
+    setUnitConfigs(prev => prev.map((u, i) => i === idx ? { ...u, [field]: val } : u))
+  const addUnit = () => setUnitConfigs(prev => [...prev, { ...EMPTY_UNIT }])
+  const removeUnit = (idx: number) => setUnitConfigs(prev => prev.filter((_, i) => i !== idx))
+
+  const resetForm = () => {
+    setEditId(null); setForm(EMPTY); setUnitConfigs([{ ...EMPTY_UNIT }])
+    setFormLocWarning(''); setQuickFillText('')
   }
 
   const canAddLoc = newLocation.trim() && !addLocIsDuplicate && (!addLocWarning || addLocForce)
@@ -332,6 +501,7 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
     ['team', '👥 Team'],
   ]
 
+  // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0F0C29,#1E1B4B)', color: 'white', display: 'flex', flexDirection: 'column' }}>
 
@@ -351,9 +521,9 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
 
       {/* MOBILE TABS */}
       {isMobile && (
-        <div style={{ display: 'flex', background: 'rgba(10,8,30,0.9)', borderBottom: '1px solid rgba(79,70,229,0.2)', padding: '0 4px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', background: 'rgba(10,8,30,0.9)', borderBottom: '1px solid rgba(79,70,229,0.2)', overflowX: 'auto' }}>
           {NAV_ITEMS.map(([k, l]) => (
-            <button key={k} onClick={() => { setSection(k as any); if (k !== 'add') { setEditId(null); setForm(EMPTY) } }}
+            <button key={k} onClick={() => { setSection(k as any); if (k !== 'add') resetForm() }}
               style={{ flexShrink: 0, padding: '12px 10px', border: 'none', fontSize: 11, cursor: 'pointer', background: 'transparent', color: section === k ? '#A5B4FC' : '#64748B', borderBottom: section === k ? '2px solid #6366F1' : '2px solid transparent', fontWeight: section === k ? 600 : 400 }}>
               {l}
             </button>
@@ -367,7 +537,7 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
         {!isMobile && (
           <aside style={{ width: 220, background: 'rgba(10,8,30,0.8)', borderRight: '1px solid rgba(79,70,229,0.2)', padding: 16, flexShrink: 0 }}>
             {NAV_ITEMS.map(([k, l]) => (
-              <button key={k} onClick={() => { setSection(k as any); if (k !== 'add') { setEditId(null); setForm(EMPTY) } }}
+              <button key={k} onClick={() => { setSection(k as any); if (k !== 'add') resetForm() }}
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', marginBottom: 6, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, background: section === k ? 'rgba(79,70,229,0.35)' : 'transparent', color: section === k ? '#A5B4FC' : '#64748B' }}>
                 {l}
                 {k === 'projects' && <span style={{ float: 'right', background: 'rgba(79,70,229,0.4)', padding: '1px 7px', borderRadius: 10, fontSize: 11 }}>{projects.length}</span>}
@@ -377,43 +547,44 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
           </aside>
         )}
 
-        {/* MAIN */}
+        {/* MAIN CONTENT */}
         <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? 16 : 24 }}>
-          {msg && <div style={{ background: msgType === 'ok' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', border: `1px solid ${msgType === 'ok' ? '#10B981' : '#EF4444'}`, borderRadius: 8, padding: '10px 16px', marginBottom: 18, color: msgType === 'ok' ? '#10B981' : '#FCA5A5', fontSize: 14 }}>{msg}</div>}
+          {msg && (
+            <div style={{ background: msgType === 'ok' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', border: `1px solid ${msgType === 'ok' ? '#10B981' : '#EF4444'}`, borderRadius: 8, padding: '10px 16px', marginBottom: 18, color: msgType === 'ok' ? '#10B981' : '#FCA5A5', fontSize: 14 }}>
+              {msg}
+            </div>
+          )}
 
-          {/* ALL PROJECTS */}
+          {/* ═══ ALL PROJECTS ═══════════════════════════════════════════════ */}
           {section === 'projects' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <h2 style={{ margin: 0, fontSize: isMobile ? 17 : 20 }}>All Projects ({projects.length})</h2>
-                <button onClick={() => setSection('add')} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '9px 14px', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>+ Add New</button>
+                <button onClick={() => { resetForm(); setSection('add') }} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '9px 14px', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>+ Add New</button>
               </div>
               {projects.length === 0
-                ? <div style={{ textAlign: 'center', padding: 60, color: '#64748B' }}>No projects yet. Add your first one!</div>
+                ? <div style={{ textAlign: 'center', padding: 60, color: '#64748B' }}>No projects yet.</div>
                 : isMobile
-                  ? <div>
-                      {projects.map(p => (
-                        <div key={p.id} style={{ background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
-                          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{p.name}</div>
-                          <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 4 }}>{p.developer} · {p.location}</div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-                            <div>
-                              <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: p.status === 'Ready to Move' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: p.status === 'Ready to Move' ? '#10B981' : '#F59E0B' }}>{p.status === 'Ready to Move' ? 'Ready' : 'UC'}</span>
-                              <span style={{ fontSize: 13, color: '#A5B4FC', marginLeft: 10 }}>{fmt(p.price_min)}–{fmt(p.price_max)}</span>
-                            </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button onClick={() => startEdit(p)} style={{ background: 'rgba(79,70,229,0.3)', border: 'none', borderRadius: 6, padding: '5px 12px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Edit</button>
-                              <button onClick={() => handleDelete(p.id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '5px 12px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>Del</button>
-                            </div>
+                  ? <div>{projects.map(p => (
+                      <div key={p.id} style={{ background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{p.name}</div>
+                        <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 8 }}>{p.developer} · {p.location}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: p.status === 'Ready to Move' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: p.status === 'Ready to Move' ? '#10B981' : '#F59E0B' }}>{p.status === 'Ready to Move' ? 'Ready' : 'UC'}</span>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => startEdit(p)} style={{ background: 'rgba(79,70,229,0.3)', border: 'none', borderRadius: 6, padding: '5px 12px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Edit</button>
+                            <button onClick={() => handleDelete(p.id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '5px 12px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>Del</button>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}</div>
                   : <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(79,70,229,0.2)' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                         <thead>
                           <tr style={{ background: 'rgba(79,70,229,0.2)' }}>
-                            {['Project','Developer','Location','Status','Price','Actions'].map(h => <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: '#A5B4FC', fontWeight: 600 }}>{h}</th>)}
+                            {['Project','Developer','Location','Status','Price Range','Actions'].map(h => (
+                              <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: '#A5B4FC', fontWeight: 600 }}>{h}</th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
@@ -422,7 +593,9 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
                               <td style={{ padding: '13px 16px', fontWeight: 600 }}>{p.name}</td>
                               <td style={{ padding: '13px 16px', color: '#94A3B8' }}>{p.developer}</td>
                               <td style={{ padding: '13px 16px', color: '#94A3B8' }}>{p.location}</td>
-                              <td style={{ padding: '13px 16px' }}><span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: p.status === 'Ready to Move' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: p.status === 'Ready to Move' ? '#10B981' : '#F59E0B' }}>{p.status}</span></td>
+                              <td style={{ padding: '13px 16px' }}>
+                                <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: p.status === 'Ready to Move' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: p.status === 'Ready to Move' ? '#10B981' : '#F59E0B' }}>{p.status}</span>
+                              </td>
                               <td style={{ padding: '13px 16px', color: '#A5B4FC' }}>{fmt(p.price_min)} – {fmt(p.price_max)}</td>
                               <td style={{ padding: '13px 16px' }}>
                                 <div style={{ display: 'flex', gap: 8 }}>
@@ -439,28 +612,44 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
             </div>
           )}
 
-          {/* ADD / EDIT */}
+          {/* ═══ ADD / EDIT ══════════════════════════════════════════════════ */}
           {section === 'add' && (
-            <div style={{ maxWidth: 720 }}>
+            <div style={{ maxWidth: 800 }}>
               <h2 style={{ fontSize: isMobile ? 17 : 20, marginBottom: 20 }}>{editId ? '✏️ Edit Project' : '➕ Add New Project'}</h2>
 
+              {/* 0️⃣ QUICK FILL */}
+              <div style={{ ...card, borderColor: 'rgba(139,92,246,0.5)', background: 'rgba(88,28,219,0.1)' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#C084FC', marginBottom: 4 }}>🪄 Quick Fill with AI</div>
+                <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 12 }}>
+                  Paste WhatsApp forwards, website copy, or any project text — AI extracts and fills all fields below automatically.
+                </div>
+                <textarea
+                  value={quickFillText}
+                  onChange={e => setQuickFillText(e.target.value)}
+                  placeholder={`Paste everything here — WhatsApp forward, brochure text, pricing table, any raw project info...\n\nExample:\n"Project: Bhartiya Garden Estate Nikoo 7\nLocation: Sadahalli opposite Prestige Tech Cloud\n2BHK starting ₹85L, Villa ₹5.79Cr...\nKIAL Airport 8km, Metro 4km..."`}
+                  rows={7}
+                  style={{ ...inp, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6, fontSize: 13 }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                  <button
+                    onClick={extractWithAI}
+                    disabled={generatingFill || !quickFillText.trim()}
+                    style={{ background: 'linear-gradient(135deg,#7C3AED,#9333EA)', border: 'none', borderRadius: 8, padding: '10px 22px', color: 'white', fontWeight: 700, cursor: generatingFill || !quickFillText.trim() ? 'default' : 'pointer', fontSize: 14, opacity: !quickFillText.trim() ? 0.5 : 1 }}>
+                    {generatingFill ? '⏳ Extracting fields…' : '🪄 Extract & Fill All Fields'}
+                  </button>
+                </div>
+              </div>
+
+              {/* ① BASIC INFO */}
               <div style={card}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>① Basic Information</div>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
-                  <div><label style={lbl}>Project Name *</label><input style={inp} value={form.name} onChange={e => setF('name', e.target.value)} placeholder="e.g. Sobha City" /></div>
-                  <div><label style={lbl}>Developer *</label><input style={inp} value={form.developer} onChange={e => setF('developer', e.target.value)} placeholder="e.g. Sobha Developers" /></div>
+                  <div><label style={lbl}>Project Name *</label><input style={inp} value={form.name} onChange={e => setF('name', e.target.value)} placeholder="e.g. Bhartiya Garden Estate Nikoo 7" /></div>
+                  <div><label style={lbl}>Developer *</label><input style={inp} value={form.developer} onChange={e => setF('developer', e.target.value)} placeholder="e.g. Bhartiya City Developers" /></div>
                   <div>
                     <label style={lbl}>Location *</label>
-                    <input
-                      list="loc-suggestions"
-                      style={inp}
-                      value={form.location}
-                      onChange={e => handleLocationInput(e.target.value)}
-                      placeholder="Type or pick a location..."
-                    />
-                    <datalist id="loc-suggestions">
-                      {locations.map(l => <option key={l.id} value={l.name} />)}
-                    </datalist>
+                    <input list="loc-suggestions" style={inp} value={form.location} onChange={e => handleLocationInput(e.target.value)} placeholder="Type or pick a location..." />
+                    <datalist id="loc-suggestions">{locations.map(l => <option key={l.id} value={l.name} />)}</datalist>
                     {formLocWarning && (
                       <div style={{ marginTop: 6, fontSize: 12, color: '#F59E0B', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         ⚠ {formLocWarning}
@@ -480,42 +669,84 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
                 </div>
               </div>
 
+              {/* ② UNIT CONFIGS */}
               <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>② Pricing & Configuration</div>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
-                  <div><label style={lbl}>Min Price (₹)*</label><input style={inp} type="number" value={form.price_min} onChange={e => setF('price_min', e.target.value)} placeholder="4900000" /></div>
-                  <div><label style={lbl}>Max Price (₹)*</label><input style={inp} type="number" value={form.price_max} onChange={e => setF('price_max', e.target.value)} placeholder="8800000" /></div>
-                  <div><label style={lbl}>Area Min (sqft)</label><input style={inp} type="number" value={form.carpet_area_min} onChange={e => setF('carpet_area_min', e.target.value)} placeholder="650" /></div>
-                  <div><label style={lbl}>Area Max (sqft)</label><input style={inp} type="number" value={form.carpet_area_max} onChange={e => setF('carpet_area_max', e.target.value)} placeholder="1200" /></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC' }}>② Unit Types, Pricing & Super Built-Up Area</div>
+                  <button onClick={addUnit} style={{ background: 'rgba(79,70,229,0.3)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 6, padding: '5px 12px', color: '#A5B4FC', cursor: 'pointer', fontSize: 12 }}>+ Add Unit Type</button>
                 </div>
-                <label style={lbl}>BHK / Property Type *</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {BHKS.map(b => {
-                    const on = form.bhk_types.includes(b)
-                    return <button key={b} onClick={() => toggleBHK(b)} style={{ padding: '5px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer', border: '1px solid', borderColor: on ? '#6366F1' : 'rgba(79,70,229,0.3)', background: on ? 'rgba(99,102,241,0.3)' : 'transparent', color: on ? '#A5B4FC' : '#64748B' }}>{b}</button>
-                  })}
+                <div style={{ fontSize: 11, color: '#64748B', marginBottom: 14 }}>
+                  Enter prices in ₹ (e.g. 4900000 = ₹49L · 10000000 = ₹1Cr · 57900000 = ₹5.79Cr) · SBA = Super Built-Up Area in sqft
                 </div>
+                {unitConfigs.map((u, idx) => (
+                  <div key={idx} style={{ background: 'rgba(15,12,41,0.5)', border: '1px solid rgba(79,70,229,0.15)', borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1.2fr 1fr 1fr 0.8fr 0.8fr 36px', gap: 8, alignItems: 'end' }}>
+                      <div>
+                        <label style={lbl}>Unit Type *</label>
+                        <select style={inp} value={u.type} onChange={e => updateUnit(idx, 'type', e.target.value)}>
+                          <option value="" style={{ background: '#1E1B4B' }}>Select type</option>
+                          {UNIT_TYPES.map(t => <option key={t} value={t} style={{ background: '#1E1B4B' }}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={lbl}>Price Min (₹) *</label>
+                        <input style={inp} type="number" value={u.price_min} onChange={e => updateUnit(idx, 'price_min', e.target.value)} placeholder="4900000" />
+                      </div>
+                      <div>
+                        <label style={lbl}>Price Max (₹)</label>
+                        <input style={inp} type="number" value={u.price_max} onChange={e => updateUnit(idx, 'price_max', e.target.value)} placeholder="8800000" />
+                      </div>
+                      <div>
+                        <label style={lbl}>SBA Min (sqft)</label>
+                        <input style={inp} type="number" value={u.sba_min} onChange={e => updateUnit(idx, 'sba_min', e.target.value)} placeholder="650" />
+                      </div>
+                      <div>
+                        <label style={lbl}>SBA Max (sqft)</label>
+                        <input style={inp} type="number" value={u.sba_max} onChange={e => updateUnit(idx, 'sba_max', e.target.value)} placeholder="1200" />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 1 }}>
+                        {unitConfigs.length > 1 && (
+                          <button onClick={() => removeUnit(idx)} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', borderRadius: 6, width: 32, height: 36, color: '#F87171', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                        )}
+                      </div>
+                    </div>
+                    {u.price_min && (
+                      <div style={{ fontSize: 11, color: '#818CF8', marginTop: 6 }}>
+                        → {u.type || 'Unit'}: {fmt(Number(u.price_min))}{u.price_max && u.price_max !== u.price_min ? `–${fmt(Number(u.price_max))}` : ''}
+                        {u.sba_min ? ` · ${u.sba_min}${u.sba_max && u.sba_max !== u.sba_min ? `–${u.sba_max}` : ''} sqft SBA` : ''}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
 
+              {/* ③ KEY HIGHLIGHTS */}
               <div style={card}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>③ Key Highlights</div>
                 {(['usp1','usp2','usp3','usp4','usp5'] as const).map((k, i) => (
                   <div key={k} style={{ marginBottom: 10 }}>
                     <label style={lbl}>Highlight {i+1}{i === 0 ? ' *' : ''}</label>
-                    <input style={inp} value={form[k]} onChange={e => setF(k, e.target.value)} placeholder={['Metro connectivity nearby','Club house with pool','RERA approved','24/7 security','Green zone'][i]} />
+                    <input style={inp} value={form[k]} onChange={e => setF(k, e.target.value)}
+                      placeholder={[
+                        'e.g. Most affordable Godrej in North Bangalore',
+                        'e.g. 8km from KIAL — ideal for airline professionals & investors',
+                        'e.g. RERA approved — Godrej brand with delivery guarantee',
+                        'e.g. Future Metro Phase 2 will add 30%+ appreciation',
+                        'e.g. High rental yield — airport proximity drives demand'
+                      ][i]} />
                   </div>
                 ))}
               </div>
 
+              {/* ④ LANDMARKS */}
               <div style={card}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>④ Nearby Landmarks</div>
                 {[1,2,3,4].map(n => (
                   <div key={n} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 0.6fr' : '1fr 0.6fr 0.8fr', gap: 10, marginBottom: 10 }}>
-                    <div><label style={lbl}>Landmark {n}</label><input style={inp} value={(form as any)[`lm${n}_name`]} onChange={e => setF(`lm${n}_name` as any, e.target.value)} placeholder="e.g. Airport" /></div>
+                    <div><label style={lbl}>Landmark {n}</label><input style={inp} value={(form as any)[`lm${n}_name`]} onChange={e => setF(`lm${n}_name` as any, e.target.value)} placeholder="e.g. Kempegowda Airport" /></div>
                     <div><label style={lbl}>Distance</label><input style={inp} value={(form as any)[`lm${n}_dist`]} onChange={e => setF(`lm${n}_dist` as any, e.target.value)} placeholder="8 km" /></div>
                     {!isMobile && (
-                      <div>
-                        <label style={lbl}>Type</label>
+                      <div><label style={lbl}>Type</label>
                         <select style={inp} value={(form as any)[`lm${n}_type`]} onChange={e => setF(`lm${n}_type` as any, e.target.value)}>
                           {LM_TYPES.map(t => <option key={t} style={{ background: '#1E1B4B' }}>{t}</option>)}
                         </select>
@@ -525,60 +756,72 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
                 ))}
               </div>
 
+              {/* ⑤ IMAGE & MAP */}
               <div style={card}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>⑤ Image & Map</div>
-                <div style={{ marginBottom: 14 }}><label style={lbl}>Image URL</label><input style={inp} value={form.image_url} onChange={e => setF('image_url', e.target.value)} placeholder="https://..." /></div>
-                <div><label style={lbl}>Google Maps Embed URL</label><input style={inp} value={form.google_maps_url} onChange={e => setF('google_maps_url', e.target.value)} placeholder="https://maps.google.com/..." /></div>
+                <div style={{ marginBottom: 14 }}>
+                  <label style={lbl}>Image URL</label>
+                  <input style={inp} value={form.image_url} onChange={e => setF('image_url', e.target.value)} placeholder="https://images.unsplash.com/..." />
+                </div>
+                <div>
+                  <label style={lbl}>Google Maps Embed URL</label>
+                  <input style={inp} value={form.google_maps_url} onChange={e => setF('google_maps_url', e.target.value)} placeholder="https://maps.google.com/..." />
+                </div>
               </div>
 
+              {/* ⑥ PITCH SCRIPT */}
               <div style={card}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>⑥ Pitch Script</span>
-                  <button
-                    onClick={generatePitchScript}
-                    disabled={generatingScript || !form.name}
-                    style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 7, padding: '6px 14px', color: 'white', fontSize: 12, fontWeight: 600, cursor: generatingScript || !form.name ? 'default' : 'pointer', opacity: !form.name ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span>⑥ General Pitch Script</span>
+                  <button onClick={generatePitchScript} disabled={generatingScript || !form.name}
+                    style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 7, padding: '6px 14px', color: 'white', fontSize: 12, fontWeight: 600, cursor: generatingScript || !form.name ? 'default' : 'pointer', opacity: !form.name ? 0.4 : 1 }}>
                     {generatingScript ? '⏳ Generating…' : '✨ Generate with AI'}
                   </button>
                 </div>
-                <textarea style={{ ...inp, height: 120, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
+                <textarea
+                  style={{ ...inp, height: 110, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
                   value={form.pitch_script} onChange={e => setF('pitch_script', e.target.value)}
                   placeholder="Write manually or click ✨ Generate with AI above…" />
-                <div style={{ fontSize: 11, color: '#475569', marginTop: 5 }}>{form.pitch_script.length} chars · You can edit the generated script before saving</div>
+                <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>
+                  {form.pitch_script.length} chars · On save, 4 persona pitches (investor/family/first-time/NRI) will be auto-generated separately
+                </div>
               </div>
 
+              {/* TAGS */}
               <div style={{ marginBottom: 24 }}>
                 <label style={lbl}>Tags (comma separated)</label>
-                <input style={inp} value={form.tags} onChange={e => setF('tags', e.target.value)} placeholder="Premium, Airport Zone, Metro Nearby" />
+                <input style={inp} value={form.tags} onChange={e => setF('tags', e.target.value)} placeholder="Premium, Airport Zone, NRI Friendly, Township, Investment" />
               </div>
 
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingBottom: 40 }}>
-                <button onClick={save} disabled={saving} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '12px 28px', color: 'white', fontWeight: 700, cursor: saving ? 'default' : 'pointer', fontSize: 15, opacity: saving ? 0.7 : 1 }}>
-                  {saving ? 'Saving...' : editId ? '✅ Update' : '🚀 Publish'}
+              {/* SUBMIT */}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingBottom: 40 }}>
+                <button onClick={save} disabled={saving || generatingPersonas}
+                  style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '12px 28px', color: 'white', fontWeight: 700, cursor: saving || generatingPersonas ? 'default' : 'pointer', fontSize: 15, opacity: saving || generatingPersonas ? 0.7 : 1 }}>
+                  {saving ? 'Saving…' : generatingPersonas ? '⏳ AI persona pitches generating…' : editId ? '✅ Update' : '🚀 Publish'}
                 </button>
-                <button onClick={() => { setForm(EMPTY); setEditId(null); setFormLocWarning(''); setSection('projects') }} style={{ background: 'transparent', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 8, padding: '12px 20px', color: '#A5B4FC', cursor: 'pointer', fontSize: 14 }}>Cancel</button>
+                <button onClick={() => { resetForm(); setSection('projects') }}
+                  style={{ background: 'transparent', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 8, padding: '12px 20px', color: '#A5B4FC', cursor: 'pointer', fontSize: 14 }}>
+                  Cancel
+                </button>
+                {generatingPersonas && (
+                  <span style={{ fontSize: 12, color: '#818CF8' }}>
+                    Generating 4 AI pitches: 💰 Investor · 🏠 Family · 🔑 First-time · 🌍 NRI…
+                  </span>
+                )}
               </div>
             </div>
           )}
 
-          {/* LOCATIONS */}
+          {/* ═══ LOCATIONS ════════════════════════════════════════════════════ */}
           {section === 'locations' && (
             <div>
               <h2 style={{ fontSize: isMobile ? 17 : 20, marginBottom: 6 }}>📍 Locations ({locations.length})</h2>
-              <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Locations added here appear in the salesperson filter. Only unused locations can be deleted.</p>
-
-              {/* Add new */}
+              <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Locations here appear in the salesperson filter. Only unused locations can be deleted.</p>
               <div style={card}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 14 }}>Add New Location</div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 200 }}>
-                    <input
-                      style={inp}
-                      value={newLocation}
-                      onChange={e => handleNewLocationInput(e.target.value)}
-                      placeholder="e.g. Devanahalli"
-                      onKeyDown={e => e.key === 'Enter' && canAddLoc && addLocation()}
-                    />
+                    <input style={inp} value={newLocation} onChange={e => handleNewLocationInput(e.target.value)} placeholder="e.g. Devanahalli" onKeyDown={e => e.key === 'Enter' && canAddLoc && addLocation()} />
                     {addLocWarning && (
                       <div style={{ marginTop: 6, fontSize: 12, color: addLocIsDuplicate ? '#F87171' : '#F59E0B', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         {addLocIsDuplicate ? '✗' : '⚠'} {addLocWarning}
@@ -587,19 +830,15 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
                         )}
                       </div>
                     )}
-                    {addLocForce && <div style={{ marginTop: 4, fontSize: 11, color: '#10B981' }}>✓ Confirmed — click Add Location to save.</div>}
+                    {addLocForce && <div style={{ marginTop: 4, fontSize: 11, color: '#10B981' }}>✓ Confirmed — click Add Location.</div>}
                   </div>
-                  <button
-                    onClick={addLocation}
-                    disabled={!canAddLoc}
+                  <button onClick={addLocation} disabled={!canAddLoc}
                     style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '10px 20px', color: 'white', fontWeight: 600, cursor: canAddLoc ? 'pointer' : 'default', fontSize: 14, opacity: canAddLoc ? 1 : 0.4, whiteSpace: 'nowrap' }}>
                     + Add Location
                   </button>
                 </div>
-                <div style={{ fontSize: 11, color: '#475569', marginTop: 10 }}>💡 Use full consistent names — "Sarjapur Road" not "Sarj Rd". This becomes the permanent filter value.</div>
+                <div style={{ fontSize: 11, color: '#475569', marginTop: 10 }}>💡 Use full names — "Sarjapur Road" not "Sarj Rd".</div>
               </div>
-
-              {/* Locations table */}
               <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(79,70,229,0.2)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                   <thead>
@@ -618,14 +857,12 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
                           <td style={{ padding: '13px 16px', textAlign: 'center' }}>
                             {count > 0
                               ? <span style={{ background: 'rgba(99,102,241,0.2)', color: '#A5B4FC', padding: '2px 10px', borderRadius: 12, fontSize: 12 }}>{count} project{count > 1 ? 's' : ''}</span>
-                              : <span style={{ color: '#475569', fontSize: 12 }}>—</span>
-                            }
+                              : <span style={{ color: '#475569', fontSize: 12 }}>—</span>}
                           </td>
                           <td style={{ padding: '13px 16px', textAlign: 'right' }}>
                             {count > 0
-                              ? <span title="Reassign projects first" style={{ fontSize: 12, color: '#475569' }}>🔒 In use</span>
-                              : <button onClick={() => deleteLocation(loc.id, loc.name)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>🗑 Delete</button>
-                            }
+                              ? <span style={{ fontSize: 12, color: '#475569' }}>🔒 In use</span>
+                              : <button onClick={() => deleteLocation(loc.id, loc.name)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>🗑 Delete</button>}
                           </td>
                         </tr>
                       )
@@ -636,7 +873,7 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
             </div>
           )}
 
-          {/* TEAM */}
+          {/* ═══ TEAM ═══════════════════════════════════════════════════════ */}
           {section === 'team' && (
             <div>
               <h2 style={{ fontSize: isMobile ? 17 : 20, marginBottom: 20 }}>👥 Team Accounts</h2>
@@ -665,6 +902,7 @@ Write ONLY the pitch script. No labels, no intro text, no explanation.`
               </div>
             </div>
           )}
+
         </main>
       </div>
     </div>
