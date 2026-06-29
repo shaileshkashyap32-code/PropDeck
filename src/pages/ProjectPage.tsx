@@ -45,7 +45,7 @@ interface Props {
   onLogout: () => void;
 }
 
-type PersonaKey = 'investor' | 'end_user' | 'first_time_buyer' | 'nri';
+type PersonaKey = 'investor' | 'upgrade_buyer' | 'end_user' | 'first_time_buyer' | 'nri';
 
 function fmt(n: number) {
   if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
@@ -111,14 +111,22 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
 
   // Persona pitches
   const hasPersonas = project?.persona_pitches &&
-    Object.values(project.persona_pitches).some(v => v)
+    ['investor','upgrade_buyer','end_user','first_time_buyer','nri']
+      .some(k => project.persona_pitches![k])
 
   const PERSONAS: [PersonaKey, string, string][] = [
     ['investor',         '💰', 'Investor'],
-    ['end_user',         '🏠', 'Family'],
+    ['upgrade_buyer',    '🏠', 'Upgrade'],
     ['first_time_buyer', '🔑', 'First-Time'],
     ['nri',              '🌍', 'NRI'],
   ]
+
+  // Handles both old string format and new array format, and upgrade_buyer/end_user key
+  const getPersonaContent = (key: string): string | string[] | null => {
+    if (!project?.persona_pitches) return null
+    return project.persona_pitches[key] ||
+      (key === 'upgrade_buyer' ? project.persona_pitches['end_user'] : null) || null
+  }
 
   // ── Nav ────────────────────────────────────────────────────────────────────
   const nav = (
@@ -268,10 +276,10 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
 
                   {/* Persona label */}
                   <div style={{ fontSize: 11, color: '#64748B', marginBottom: 10 }}>
-                    {persona === 'investor' && 'For investors — focuses on rental yield, appreciation, airport corridor, infrastructure growth'}
-                    {persona === 'end_user' && 'For families — focuses on schools, hospitals, daily convenience, community lifestyle'}
-                    {persona === 'first_time_buyer' && 'For first-time buyers — focuses on entry price, EMI, RERA, trusted developer'}
-                    {persona === 'nri' && 'For NRI buyers — focuses on developer reputation, rental income, NRI home loan, easy documentation'}
+                    {persona === 'investor' && '🔍 Web-researched: appreciation %, rental yield, upcoming infrastructure, competition prices'}
+                    {(persona === 'upgrade_buyer' || persona === 'end_user') && '🔍 Web-researched: size comparison, price per sqft, family amenities, upgrade math'}
+                    {persona === 'first_time_buyer' && '🔍 Web-researched: EMI estimate, rent vs buy, price comparison, tax benefits'}
+                    {persona === 'nri' && '🔍 Web-researched: currency advantage, rental yield, NRI loans, repatriation rules'}
                   </div>
 
                   {/* Pitch content */}
@@ -282,18 +290,38 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
                       </div>
                       <span style={{ fontSize: 11, background: 'rgba(16,185,129,0.2)', color: '#10B981', padding: '3px 10px', borderRadius: 20 }}>AI Generated ✓</span>
                     </div>
-                    <p style={{ color: '#E2E8F0', lineHeight: 1.9, fontSize: 14, marginBottom: 18, whiteSpace: 'pre-line' }}>
-                      {project.persona_pitches![persona] || 'No pitch available for this persona.'}
-                    </p>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(project.persona_pitches![persona] || '')
-                        setCopied(true)
-                        setTimeout(() => setCopied(false), 2000)
-                      }}
-                      style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 7, padding: '8px 18px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>
-                      {copied ? '✅ Copied!' : '📋 Copy Script'}
-                    </button>
+                    {(() => {
+                        const content = getPersonaContent(persona)
+                        if (Array.isArray(content) && content.length > 0) {
+                          return (
+                            <div>
+                              {content.map((point, i) => (
+                                <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: i < content.length - 1 ? '1px solid rgba(79,70,229,0.12)' : 'none', alignItems: 'flex-start' }}>
+                                  <span style={{ color: '#6366F1', fontWeight: 700, fontSize: 15, flexShrink: 0, marginTop: 2 }}>•</span>
+                                  <span style={{ color: '#E2E8F0', fontSize: 14, lineHeight: 1.65 }}>{point}</span>
+                                </div>
+                              ))}
+                              <div style={{ marginTop: 16 }}>
+                                <button onClick={() => { navigator.clipboard.writeText(content.join('\n')); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                                  style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 7, padding: '8px 18px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>
+                                  {copied ? '✅ Copied!' : '📋 Copy All Points'}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        } else if (typeof content === 'string' && content) {
+                          return (
+                            <div>
+                              <p style={{ color: '#E2E8F0', lineHeight: 1.9, fontSize: 14, marginBottom: 16, whiteSpace: 'pre-line' }}>{content}</p>
+                              <button onClick={() => { navigator.clipboard.writeText(content); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                                style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 7, padding: '8px 18px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>
+                                {copied ? '✅ Copied!' : '📋 Copy Script'}
+                              </button>
+                            </div>
+                          )
+                        }
+                        return <p style={{ color: '#64748B', fontSize: 14 }}>No talking points yet. Re-save this project to generate with web search.</p>
+                      })()}
                   </div>
                 </div>
               ) : project.pitch_script ? (
