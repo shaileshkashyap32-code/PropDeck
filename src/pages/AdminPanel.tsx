@@ -146,10 +146,21 @@ export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
   const safeJSON = (raw: string) => {
     const strip = (s: string) => s.replace(/```json|```/g, '').trim()
     try { return JSON.parse(strip(raw)) } catch {}
-    try {
-      const m = raw.match(/\{[\s\S]*\}/)
-      if (m) return JSON.parse(m[0])
-    } catch {}
+    // Brace-tracking: handles when grounding annotations appear after JSON
+    const start = raw.indexOf('{')
+    if (start !== -1) {
+      let depth = 0
+      for (let i = start; i < raw.length; i++) {
+        if (raw[i] === '{') depth++
+        else if (raw[i] === '}') {
+          depth--
+          if (depth === 0) {
+            try { return JSON.parse(raw.substring(start, i + 1)) } catch {}
+            break
+          }
+        }
+      }
+    }
     return null
   }
 
@@ -240,63 +251,115 @@ ${quickFillText}`
     setGeneratingFill(false)
   }
 
-  // ─── Persona pitch generation ─────────────────────────────────────────────
+  // ─── Persona pitch generation (Google Search grounded) ─────────────────────
   const generatePersonaPitches = async (
     p: any, configs: UnitConfig[]
-  ): Promise<Record<string, string>> => {
+  ): Promise<Record<string, any>> => {
     const unitLines = configs
       .filter(u => u.type)
-      .map(u => `  ${u.type}: ${u.price_min ? fmt(Number(u.price_min)) : '?'}${u.price_max ? `–${fmt(Number(u.price_max))}` : ''}, SBA ${u.sba_min || '?'}–${u.sba_max || '?'} sqft`)
+      .map(u => {
+        const pMin = u.price_min ? fmt(Number(u.price_min)) : '?'
+        const pMax = u.price_max ? `–${fmt(Number(u.price_max))}` : ''
+        const sba = u.sba_min ? `, SBA ${u.sba_min}${u.sba_max && u.sba_max !== u.sba_min ? `–${u.sba_max}` : ''} sqft` : ''
+        return `  ${u.type}: ${pMin}${pMax}${sba}`
+      })
       .join('\n')
     const lmText = [1,2,3,4]
-      .map(n => p.landmarks?.[n-1]?.name ? `${p.landmarks[n-1].name} (${p.landmarks[n-1].distance})` : null)
+      .map(n => p.landmarks?.[n-1]?.name
+        ? `${p.landmarks[n-1].name} (${p.landmarks[n-1].distance}, ${p.landmarks[n-1].type})`
+        : null)
       .filter(Boolean).join(', ')
+    const validConfigs = configs.filter(u => u.price_min)
+    const entryPrice = validConfigs.length > 0
+      ? fmt(Math.min(...validConfigs.map(u => Number(u.price_min))))
+      : 'entry price'
 
-    const prompt = `You are a top real estate sales trainer in Bangalore, India.
+    const prompt = `You are a real estate sales intelligence system for Bangalore, India.
 
-Write 4 short pitch scripts for "${p.name}" by ${p.developer} in ${p.location}.
-Each pitch: 4-5 sentences, conversational first-person, salesperson speaking on a live call.
-Use specific numbers, project name, and location — make it feel real, not generic.
+STEP 1 - Search the web now for current data about:
+- Property appreciation % in ${p.location} area over last 2-3 years
+- Upcoming infrastructure near ${p.location}: metro, highway, IT parks, airport expansion
+- Competing / comparable projects in ${p.location} or nearby with current prices
+- ${p.developer} delivery history and reputation for past projects
+- Average monthly rental rates for apartments near ${p.location}
+- Any recent news or developments affecting property value in this corridor
 
-Project:
-- Units & pricing:
+STEP 2 - Using that research + the project data below, generate a sales cheat sheet.
+
+Project: ${p.name} by ${p.developer} in ${p.location}
+Units:
 ${unitLines || '  Mixed configurations'}
-- Status: ${p.status} · Possession: ${p.possession_date || 'TBD'}
-- Key highlights: ${p.usps?.join(', ')}
-- Nearby: ${lmText || 'Bangalore location'}
+Status: ${p.status} | Possession: ${p.possession_date || 'TBD'}
+Highlights: ${p.usps?.join(', ')}
+Landmarks: ${lmText}
+RERA: ${p.rera_number || 'Approved'}
 
-Return ONLY this JSON (no markdown):
+These are NOT scripts. They are quick reference talking points a salesperson uses mid-call when they identify the customer type. Each point = one specific fact, number, or comparison to use. Use real data from your search. Be specific with numbers.
+
+Return ONLY valid JSON, no markdown, no citation numbers inside text:
 {
-  "investor": "pitch targeting investor — focus: rental yield from airport/IT crowd, corridor appreciation, upcoming metro/infrastructure, developer track record, low entry vs future value",
-  "end_user": "pitch targeting family buyer — focus: nearest school and hospital distance, daily convenience, gated community lifestyle, children safety, weekend amenities",
-  "first_time_buyer": "pitch targeting first-time buyer — focus: entry price, estimated EMI, RERA protection, trusted developer brand, possession timeline, future resale value",
-  "nri": "pitch targeting NRI — focus: developer reputation India-wide, rental income potential, NRI home loan availability, property management ease, strong ROI vs overseas investment, emotional India connection"
+  "investor": [
+    "Appreciation: [specific % for ${p.location} corridor found from search — e.g. X% in 3 years]",
+    "Rental yield: [monthly rent estimate for 1BHK/2BHK near ${p.location} and yield %]",
+    "Infrastructure pipeline: [specific upcoming projects found — name them]",
+    "Competition pricing: [competing project names and prices from search for comparison]",
+    "Entry timing: why ${entryPrice} now is a good entry before appreciation",
+    "Developer track record: [${p.developer} specific past projects and on-time delivery data]",
+    "Rental demand: who rents here and why — IT staff, airline professionals, etc.",
+    "Exit strategy: specific factors that will drive resale demand at this location"
+  ],
+  "first_time_buyer": [
+    "EMI reality: ${entryPrice} at 90% loan, 8.75%, 20 years = approx [calculate] per month",
+    "Rent vs EMI: what similar apartment rents for in ${p.location} vs the EMI above",
+    "RERA safety: ${p.rera_number ? 'RERA No: ' + p.rera_number + ' — ' : ''}what RERA protects the buyer against",
+    "Developer credibility: ${p.developer} — [specific delivery record from search]",
+    "Price vs alternatives: how ${p.name} entry price compares to other options in Bangalore",
+    "Home loan access: which banks typically finance ${p.developer} projects",
+    "Tax saving: section 80C + 24b — estimated annual tax benefit at this price",
+    "Long-term value: specific reasons this location will appreciate over 5-7 years"
+  ],
+  "upgrade_buyer": [
+    "Size comparison: ${p.name} SBA vs what typical 2BHK/3BHK buyers currently live in",
+    "Price per sqft: ${p.name} vs typical price per sqft in established areas of Bangalore",
+    "Extra amenities: specific features at ${p.name} absent in older standalone buildings",
+    "Family infrastructure: school, hospital, park — distances from ${p.location}",
+    "Right configuration: which unit type here suits a growing family of 3-4",
+    "Upgrade math: if old home sells at market rate + bridge loan — rough monthly cost",
+    "Construction quality: ${p.developer} specs vs older builder floor construction",
+    "Lifestyle upgrade: specific integrated township advantages vs standalone building"
+  ],
+  "nri": [
+    "Currency advantage: ${entryPrice} in INR — equivalent in USD/AED/GBP at today's rate",
+    "Rental income potential: estimated monthly rent and annual yield % in ${p.location}",
+    "Developer for NRIs: ${p.developer} reputation and past NRI buyer experience from search",
+    "RERA protection: how RERA specifically protects NRI buyers purchasing remotely",
+    "NRI home loan: SBI/HDFC/ICICI NRI loan products, LTV, and typical eligibility",
+    "Property management: how remote ownership works — management services in Bangalore",
+    "Repatriation: how rental income and sale proceeds are sent abroad per FEMA rules",
+    "ROI vs alternatives: ${p.location} real estate annual return vs NRI savings or overseas options"
+  ]
 }`
 
     try {
-      const raw = await callGemini(prompt)
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            tools: [{ google_search: {} }]
+          })
+        }
+      )
+      const d = await res.json()
+      const raw = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
       const parsed = safeJSON(raw)
-      return parsed || { investor: '', end_user: '', first_time_buyer: '', nri: '' }
+      return parsed || { investor: [], first_time_buyer: [], upgrade_buyer: [], nri: [] }
     } catch {
-      return { investor: '', end_user: '', first_time_buyer: '', nri: '' }
+      return { investor: [], first_time_buyer: [], upgrade_buyer: [], nri: [] }
     }
-  }
-
-  // ─── Image upload ────────────────────────────────────────────────────────────
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 5 * 1024 * 1024) { flash('Image too large. Max 5MB.', 'err'); return }
-    setUploadingImage(true)
-    const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-    const { data, error } = await supabase.storage
-      .from('project-images')
-      .upload(fileName, file, { contentType: file.type })
-    if (error) { flash('Upload failed: ' + error.message, 'err'); setUploadingImage(false); return }
-    const { data: urlData } = supabase.storage.from('project-images').getPublicUrl(data.path)
-    setF('image_url', urlData.publicUrl)
-    flash('✅ Image uploaded successfully!')
-    setUploadingImage(false)
   }
 
   // ─── Pitch script generation (section ⑥) ─────────────────────────────────
@@ -477,7 +540,7 @@ Write ONLY the pitch script. No labels or preamble.`
     if (!locExists) { await supabase.from('locations').insert({ name: form.location.trim() }); loadLocations() }
 
     setSaving(false)
-    flash('✅ Project saved! Now generating 4 AI persona pitches (investor, family, first-time, NRI)…')
+    flash('✅ Project saved! Generating persona cheat sheets with web search — takes 15-20 sec…')
     setGeneratingPersonas(true)
 
     const personas = await generatePersonaPitches({ ...payload, usps: uspsList }, validConfigs)
