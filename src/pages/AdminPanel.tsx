@@ -93,6 +93,7 @@ export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
   const [generatingFill, setGeneratingFill] = useState(false)
   const [generatingScript, setGeneratingScript] = useState(false)
   const [generatingPersonas, setGeneratingPersonas] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768)
@@ -279,6 +280,23 @@ Return ONLY this JSON (no markdown):
     } catch {
       return { investor: '', end_user: '', first_time_buyer: '', nri: '' }
     }
+  }
+
+  // ─── Image upload ────────────────────────────────────────────────────────────
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { flash('Image too large. Max 5MB.', 'err'); return }
+    setUploadingImage(true)
+    const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+    const { data, error } = await supabase.storage
+      .from('project-images')
+      .upload(fileName, file, { contentType: file.type })
+    if (error) { flash('Upload failed: ' + error.message, 'err'); setUploadingImage(false); return }
+    const { data: urlData } = supabase.storage.from('project-images').getPublicUrl(data.path)
+    setF('image_url', urlData.publicUrl)
+    flash('✅ Image uploaded successfully!')
+    setUploadingImage(false)
   }
 
   // ─── Pitch script generation (section ⑥) ─────────────────────────────────
@@ -765,13 +783,37 @@ Write ONLY the pitch script. No labels or preamble.`
               {/* ⑤ IMAGE & MAP */}
               <div style={card}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>⑤ Image & Map</div>
+                {/* Upload button */}
                 <div style={{ marginBottom: 14 }}>
-                  <label style={lbl}>Image URL</label>
-                  <input style={inp} value={form.image_url} onChange={e => setF('image_url', e.target.value)} placeholder="https://images.unsplash.com/..." />
+                  <label style={lbl}>Project Image</label>
+                  {form.image_url ? (
+                    <div>
+                      <img src={form.image_url} alt="preview" style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 10, display: 'block' }} />
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                        <label style={{ cursor: 'pointer', background: 'rgba(79,70,229,0.2)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 7, padding: '7px 14px', color: '#A5B4FC', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          📷 Change Image
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} disabled={uploadingImage} />
+                        </label>
+                        <button onClick={() => setF('image_url', '')} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 7, padding: '7px 14px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>✕ Remove</button>
+                        {uploadingImage && <span style={{ fontSize: 12, color: '#A5B4FC', alignSelf: 'center' }}>⏳ Uploading...</span>}
+                      </div>
+                    </div>
+                  ) : (
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 120, borderRadius: 10, border: '2px dashed rgba(79,70,229,0.35)', cursor: uploadingImage ? 'default' : 'pointer', color: '#64748B', gap: 8, marginBottom: 8, background: 'rgba(79,70,229,0.04)' }}>
+                      {uploadingImage
+                        ? <span style={{ color: '#A5B4FC', fontSize: 14 }}>Uploading...</span>
+                        : <><span style={{ fontSize: 36 }}>📷</span><span style={{ fontSize: 13 }}>Click to upload project image</span><span style={{ fontSize: 11 }}>JPG · PNG · WEBP — max 5MB</span></>
+                      }
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} disabled={uploadingImage} />
+                    </label>
+                  )}
+                  <label style={{ fontSize: 11, color: '#475569', display: 'block', marginBottom: 4 }}>Or paste image URL directly</label>
+                  <input style={{ ...inp, fontSize: 12 }} value={form.image_url} onChange={e => setF('image_url', e.target.value)} placeholder="https://images.unsplash.com/..." />
                 </div>
                 <div>
                   <label style={lbl}>Google Maps Embed URL</label>
                   <input style={inp} value={form.google_maps_url} onChange={e => setF('google_maps_url', e.target.value)} placeholder="https://maps.google.com/..." />
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 5 }}>Get embed URL: Google Maps → Share → Embed a map → copy the src value</div>
                 </div>
               </div>
 
