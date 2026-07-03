@@ -270,9 +270,25 @@ ${quickFillText}`
         : null)
       .filter(Boolean).join(', ')
     const validConfigs = configs.filter(u => u.price_min)
-    const entryPrice = validConfigs.length > 0
-      ? fmt(Math.min(...validConfigs.map(u => Number(u.price_min))))
-      : 'entry price'
+
+    // Cheapest config = "entry" unit type — used for EMI / entry price / NRI conversion,
+    // so every unit-specific figure can name the exact configuration it's based on.
+    const entryConfig = validConfigs.length > 0
+      ? validConfigs.reduce((min, u) => Number(u.price_min) < Number(min.price_min) ? u : min, validConfigs[0])
+      : null
+    const entryPrice = entryConfig ? fmt(Number(entryConfig.price_min)) : 'entry price'
+    const entryType = entryConfig ? entryConfig.type : 'entry unit'
+
+    // A second, distinct unit type (if one exists) for the investor tab's second yield point
+    const secondConfig = validConfigs.find(u => u.type !== entryType)
+    const secondType = secondConfig ? secondConfig.type : entryType
+
+    // Family-oriented config for the Upgrade tab — prefers larger, family-friendly types
+    const FAMILY_TYPE_PRIORITY = ['3BHK','2.5BHK','2BHK','3.5BHK','4BHK','Townhouse','Villa','Penthouse','Studio','1BHK','Plot']
+    const familyConfig = FAMILY_TYPE_PRIORITY.map(t => validConfigs.find(u => u.type === t)).find(Boolean) || validConfigs[0]
+    const familyType = familyConfig ? familyConfig.type : 'family unit'
+
+    const unitTypesList = validConfigs.map(u => u.type).join(', ') || 'Mixed configurations'
 
     const prompt = `You are a real estate sales intelligence system for Bangalore, India.
 
@@ -294,56 +310,57 @@ Highlights: ${p.usps?.join(', ')}
 Landmarks: ${lmText}
 RERA: ${p.rera_number || 'Approved'}
 
-These are NOT scripts and NOT full sentences. They are a glanceable cheat sheet — a salesperson reads each line in under 2 seconds mid-call while the client is talking, so treat every point like a highlight card, never a paragraph.
+These are NOT scripts and NOT full paragraphs. They are a glanceable cheat sheet — a salesperson reads each line in 2-3 seconds mid-call while the client is talking, so treat every point like a highlight card, never a bare fragment and never a wall of text.
 
 STRICT FORMAT RULES — follow exactly:
-1. Each point = ONE fact only, max 12-14 words. If a raw fact naturally contains two numbers (e.g. 1BHK rent AND 2BHK rent, or min AND max appreciation), SPLIT it into two separate points instead of combining them in one line.
-2. Wrap the single most important number, %, year, or ₹ figure in double asterisks — e.g. **62%**, **₹22,200/mo**, **2026-27**. Exactly ONE bolded figure per point. Do not bold anything else, do not bold whole sentences.
-3. Cut filler words entirely — no "approximately", "estimated around", "translating to a yield of". State the number directly.
-4. Still pull real, specific data from your search — actual numbers, %, and years, never vague statements like "prices are rising."
-5. If a fact genuinely has no number, lead with a short bolded keyword instead — e.g. **Metro 2026**, **RERA Approved**, **Doddajala Station**.
+1. Each point: roughly 14-20 words — about one to one-and-a-half lines on screen. Enough room for ONE fact plus the context needed to actually use it on a call. Never a 4-word fragment, never a multi-sentence paragraph.
+2. This project's ACTUAL unit types are: ${unitTypesList}. Whenever a point cites a price, EMI, rent, yield, SBA, or price/sqft figure that belongs to ONE specific unit type (not the whole project), name that exact unit type inline in the sentence — e.g. "3BHK EMI at 90%..." or "Studio rental yield is...". NEVER reference a BHK/unit type that isn't in this list, and NEVER leave a unit-specific number floating without saying which configuration it's for.
+3. Wrap the single most important number, %, year, or ₹ figure in double asterisks — e.g. **62%**, **₹22,200/mo**, **2026-27**. Exactly ONE bolded figure per point. Do not bold anything else.
+4. Cut pure filler ("approximately", "estimated around", "translating to a yield of") — but DO keep the words needed to name the unit type, so the point is self-contained and unambiguous on its own.
+5. Pull real, specific data from your search — actual numbers, %, and years, never vague statements like "prices are rising."
+6. If a fact genuinely has no number, lead with a short bolded keyword instead — e.g. **Metro 2026**, **RERA Approved**.
 
-Return ONLY valid JSON, no markdown fences, no citation numbers inside text. Follow this exact structure and style (the bracketed parts show what to research and insert — write real short data, not the brackets themselves):
+Return ONLY valid JSON, no markdown fences, no citation numbers inside text. Follow this exact structure and style (bracketed parts show what to research and insert — write real short data, not the brackets themselves):
 {
   "investor": [
-    "Appreciation: **[X%]** in ${p.location}, last 3 yrs",
-    "1BHK rental yield: **[X%]**, ~₹[rent]/mo",
-    "2BHK rental yield: **[X%]**, ~₹[rent]/mo",
-    "Infra: **[project name]** completes [year]",
-    "Rival project: **[name]** priced [₹X]",
-    "Entry price **${entryPrice}** — before infra-driven rise",
-    "${p.developer} delivery: **[X]** on-time projects",
-    "Resale driver: **[short keyword, e.g. IT corridor]**"
+    "Appreciation: **[X%]** in ${p.location} over the last 3 years",
+    "${entryType} rental yield: **[X%]** annual, around ₹[rent]/mo rent",
+    "${secondType !== entryType ? secondType + ' rental yield: **[X%]** annual, around ₹[rent]/mo rent' : 'Price/sqft trend: **₹[X]/sqft**, up [Y]% year-on-year'}",
+    "Infra boost: **[project/station name]** completes around [year]",
+    "Rival project: **[name]** priced from **[₹X]** for a comparable config",
+    "${entryType} entry price **${entryPrice}** — before infra-driven appreciation",
+    "${p.developer} delivery record: **[X]** projects completed on time",
+    "Resale driver: **[short reason, e.g. IT corridor demand]**"
   ],
   "first_time_buyer": [
-    "EMI (90% loan, 20yr): **₹[X]/mo**",
-    "Nearby rent for comparison: **₹[X]/mo**",
-    "RERA No: **${p.rera_number || 'Approved'}**",
-    "${p.developer} track record: **[X]% on-time**",
-    "Vs comparable projects: **[X]% cheaper/costlier]**",
-    "Loan access: financed by **[bank names]**",
-    "Tax saving (80C+24b): up to **₹[X]/yr**",
-    "5-7yr outlook: **[short keyword reason]**"
+    "${entryType} EMI at 90% loan, 20yr: **₹[X]/mo** approx",
+    "${entryType}-sized rent nearby for comparison: **₹[X]/mo**",
+    "RERA No: **${p.rera_number || 'Approved'}** — protects your booking amount",
+    "${p.developer} track record: **[X]%** of past projects delivered on time",
+    "${entryType} price here vs comparable projects nearby: **[X]%** cheaper or costlier",
+    "Home loan access: financed by **[bank names]**",
+    "Tax saving under 80C+24b: up to **₹[X]/yr**",
+    "5-7yr value outlook here: **[short keyword reason]**"
   ],
   "upgrade_buyer": [
-    "SBA here: **[X] sqft** vs typical 2BHK [Y] sqft",
-    "Price/sqft: **₹[X]** vs area avg ₹[Y]",
-    "Standout amenity: **[specific feature]**",
-    "Nearest school: **[name]**, [distance]",
-    "Best fit: **[unit type]** for family of 3-4",
-    "Bridge loan cost: **~₹[X]/mo** during move",
-    "${p.developer} build quality: **[one keyword spec]**",
-    "Township edge: **[short keyword, e.g. gated security]**"
+    "${familyType} SBA here: **[X] sqft** vs a typical ${familyType} elsewhere at [Y] sqft",
+    "${familyType} price per sqft: **₹[X]** vs area average of ₹[Y]",
+    "Standout amenity vs standalone buildings: **[specific feature]**",
+    "Nearest school for families: **[name]**, [distance] away",
+    "Best fit for a family of 3-4: **${familyType}**, from [price]",
+    "Bridge loan cost while transitioning: **~₹[X]/mo**",
+    "${p.developer} build quality vs standalone builder floors: **[keyword spec]**",
+    "Township lifestyle edge: **[keyword, e.g. 24x7 gated security]**"
   ],
   "nri": [
-    "Entry price in USD: **~$[X]** at today's rate",
-    "Rental yield: **[X%]** annual",
-    "Est. monthly rent: **₹[X]/mo**",
-    "RERA protects remote buyers: **[short reason]**",
-    "NRI home loan LTV: **[X%]** via [bank]",
-    "Property management fee: **~₹[X]/mo**",
-    "FEMA repatriation limit: **$1M/yr**",
-    "5yr ROI here vs NRI FD: **[X%] vs [Y%]**"
+    "${entryType} entry price in USD: **~$[X]** at today's exchange rate",
+    "${entryType} rental yield: **[X%]** annual for remote owners",
+    "${entryType} estimated monthly rent: **₹[X]/mo**",
+    "RERA protection for remote buyers: **[short reason]**",
+    "NRI home loan LTV: **[X%]** available via [bank]",
+    "Remote property management fee: **~₹[X]/mo**",
+    "FEMA repatriation limit for sale proceeds: **$1M/yr**",
+    "5yr ROI here vs NRI FD returns: **[X%] vs [Y%]**"
   ]
 }`
 
