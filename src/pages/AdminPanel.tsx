@@ -294,49 +294,56 @@ Highlights: ${p.usps?.join(', ')}
 Landmarks: ${lmText}
 RERA: ${p.rera_number || 'Approved'}
 
-These are NOT scripts. They are quick reference talking points a salesperson uses mid-call when they identify the customer type. Each point = one specific fact, number, or comparison to use. Use real data from your search. Be specific with numbers.
+These are NOT scripts and NOT full sentences. They are a glanceable cheat sheet — a salesperson reads each line in under 2 seconds mid-call while the client is talking, so treat every point like a highlight card, never a paragraph.
 
-Return ONLY valid JSON, no markdown, no citation numbers inside text:
+STRICT FORMAT RULES — follow exactly:
+1. Each point = ONE fact only, max 12-14 words. If a raw fact naturally contains two numbers (e.g. 1BHK rent AND 2BHK rent, or min AND max appreciation), SPLIT it into two separate points instead of combining them in one line.
+2. Wrap the single most important number, %, year, or ₹ figure in double asterisks — e.g. **62%**, **₹22,200/mo**, **2026-27**. Exactly ONE bolded figure per point. Do not bold anything else, do not bold whole sentences.
+3. Cut filler words entirely — no "approximately", "estimated around", "translating to a yield of". State the number directly.
+4. Still pull real, specific data from your search — actual numbers, %, and years, never vague statements like "prices are rising."
+5. If a fact genuinely has no number, lead with a short bolded keyword instead — e.g. **Metro 2026**, **RERA Approved**, **Doddajala Station**.
+
+Return ONLY valid JSON, no markdown fences, no citation numbers inside text. Follow this exact structure and style (the bracketed parts show what to research and insert — write real short data, not the brackets themselves):
 {
   "investor": [
-    "Appreciation: [specific % for ${p.location} corridor found from search — e.g. X% in 3 years]",
-    "Rental yield: [monthly rent estimate for 1BHK/2BHK near ${p.location} and yield %]",
-    "Infrastructure pipeline: [specific upcoming projects found — name them]",
-    "Competition pricing: [competing project names and prices from search for comparison]",
-    "Entry timing: why ${entryPrice} now is a good entry before appreciation",
-    "Developer track record: [${p.developer} specific past projects and on-time delivery data]",
-    "Rental demand: who rents here and why — IT staff, airline professionals, etc.",
-    "Exit strategy: specific factors that will drive resale demand at this location"
+    "Appreciation: **[X%]** in ${p.location}, last 3 yrs",
+    "1BHK rental yield: **[X%]**, ~₹[rent]/mo",
+    "2BHK rental yield: **[X%]**, ~₹[rent]/mo",
+    "Infra: **[project name]** completes [year]",
+    "Rival project: **[name]** priced [₹X]",
+    "Entry price **${entryPrice}** — before infra-driven rise",
+    "${p.developer} delivery: **[X]** on-time projects",
+    "Resale driver: **[short keyword, e.g. IT corridor]**"
   ],
   "first_time_buyer": [
-    "EMI reality: ${entryPrice} at 90% loan, 8.75%, 20 years = approx [calculate] per month",
-    "Rent vs EMI: what similar apartment rents for in ${p.location} vs the EMI above",
-    "RERA safety: ${p.rera_number ? 'RERA No: ' + p.rera_number + ' — ' : ''}what RERA protects the buyer against",
-    "Developer credibility: ${p.developer} — [specific delivery record from search]",
-    "Price vs alternatives: how ${p.name} entry price compares to other options in Bangalore",
-    "Home loan access: which banks typically finance ${p.developer} projects",
-    "Tax saving: section 80C + 24b — estimated annual tax benefit at this price",
-    "Long-term value: specific reasons this location will appreciate over 5-7 years"
+    "EMI (90% loan, 20yr): **₹[X]/mo**",
+    "Nearby rent for comparison: **₹[X]/mo**",
+    "RERA No: **${p.rera_number || 'Approved'}**",
+    "${p.developer} track record: **[X]% on-time**",
+    "Vs comparable projects: **[X]% cheaper/costlier]**",
+    "Loan access: financed by **[bank names]**",
+    "Tax saving (80C+24b): up to **₹[X]/yr**",
+    "5-7yr outlook: **[short keyword reason]**"
   ],
   "upgrade_buyer": [
-    "Size comparison: ${p.name} SBA vs what typical 2BHK/3BHK buyers currently live in",
-    "Price per sqft: ${p.name} vs typical price per sqft in established areas of Bangalore",
-    "Extra amenities: specific features at ${p.name} absent in older standalone buildings",
-    "Family infrastructure: school, hospital, park — distances from ${p.location}",
-    "Right configuration: which unit type here suits a growing family of 3-4",
-    "Upgrade math: if old home sells at market rate + bridge loan — rough monthly cost",
-    "Construction quality: ${p.developer} specs vs older builder floor construction",
-    "Lifestyle upgrade: specific integrated township advantages vs standalone building"
+    "SBA here: **[X] sqft** vs typical 2BHK [Y] sqft",
+    "Price/sqft: **₹[X]** vs area avg ₹[Y]",
+    "Standout amenity: **[specific feature]**",
+    "Nearest school: **[name]**, [distance]",
+    "Best fit: **[unit type]** for family of 3-4",
+    "Bridge loan cost: **~₹[X]/mo** during move",
+    "${p.developer} build quality: **[one keyword spec]**",
+    "Township edge: **[short keyword, e.g. gated security]**"
   ],
   "nri": [
-    "Currency advantage: ${entryPrice} in INR — equivalent in USD/AED/GBP at today's rate",
-    "Rental income potential: estimated monthly rent and annual yield % in ${p.location}",
-    "Developer for NRIs: ${p.developer} reputation and past NRI buyer experience from search",
-    "RERA protection: how RERA specifically protects NRI buyers purchasing remotely",
-    "NRI home loan: SBI/HDFC/ICICI NRI loan products, LTV, and typical eligibility",
-    "Property management: how remote ownership works — management services in Bangalore",
-    "Repatriation: how rental income and sale proceeds are sent abroad per FEMA rules",
-    "ROI vs alternatives: ${p.location} real estate annual return vs NRI savings or overseas options"
+    "Entry price in USD: **~$[X]** at today's rate",
+    "Rental yield: **[X%]** annual",
+    "Est. monthly rent: **₹[X]/mo**",
+    "RERA protects remote buyers: **[short reason]**",
+    "NRI home loan LTV: **[X%]** via [bank]",
+    "Property management fee: **~₹[X]/mo**",
+    "FEMA repatriation limit: **$1M/yr**",
+    "5yr ROI here vs NRI FD: **[X%] vs [Y%]**"
   ]
 }`
 
