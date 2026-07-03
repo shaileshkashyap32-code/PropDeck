@@ -53,6 +53,27 @@ function fmt(n: number) {
   return `₹${n}`;
 }
 
+// Renders "text **bold** text" as real bold spans instead of showing raw asterisks.
+// Only the wrapped portion is bolded/highlighted — everything else stays plain.
+function renderBold(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} style={{ color: '#C4B5FD', fontWeight: 700 }}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+// Strips ** markers for clean plain-text copy (WhatsApp / clipboard)
+function stripBold(text: string) {
+  return text.replace(/\*\*/g, '');
+}
+
 export default function ProjectPage({ projectId, user, onBack, onLogout }: Props) {
   const [project, setProject] = useState<Project | null>(null);
   const [similar, setSimilar] = useState<Project[]>([]);
@@ -259,7 +280,7 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
                 </div>
           )}
 
-          {/* ── PITCH TAB (CHANGE 3: 4 persona tabs) ── */}
+          {/* ── PITCH TAB (CHANGE 3: 4 persona tabs, CHANGE 4: bold highlights rendered) ── */}
           {tab === 'pitch' && (
             <div>
               {hasPersonas ? (
@@ -298,11 +319,11 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
                               {content.map((point, i) => (
                                 <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: i < content.length - 1 ? '1px solid rgba(79,70,229,0.12)' : 'none', alignItems: 'flex-start' }}>
                                   <span style={{ color: '#6366F1', fontWeight: 700, fontSize: 15, flexShrink: 0, marginTop: 2 }}>•</span>
-                                  <span style={{ color: '#E2E8F0', fontSize: 14, lineHeight: 1.65 }}>{point}</span>
+                                  <span style={{ color: '#E2E8F0', fontSize: 14, lineHeight: 1.5 }}>{renderBold(point)}</span>
                                 </div>
                               ))}
                               <div style={{ marginTop: 16 }}>
-                                <button onClick={() => { navigator.clipboard.writeText(content.join('\n')); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                                <button onClick={() => { navigator.clipboard.writeText(content.map(stripBold).join('\n')); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
                                   style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 7, padding: '8px 18px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>
                                   {copied ? '✅ Copied!' : '📋 Copy All Points'}
                                 </button>
@@ -312,8 +333,8 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
                         } else if (typeof content === 'string' && content) {
                           return (
                             <div>
-                              <p style={{ color: '#E2E8F0', lineHeight: 1.9, fontSize: 14, marginBottom: 16, whiteSpace: 'pre-line' }}>{content}</p>
-                              <button onClick={() => { navigator.clipboard.writeText(content); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                              <p style={{ color: '#E2E8F0', lineHeight: 1.9, fontSize: 14, marginBottom: 16, whiteSpace: 'pre-line' }}>{renderBold(content)}</p>
+                              <button onClick={() => { navigator.clipboard.writeText(stripBold(content)); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
                                 style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 7, padding: '8px 18px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>
                                 {copied ? '✅ Copied!' : '📋 Copy Script'}
                               </button>
