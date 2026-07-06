@@ -80,6 +80,9 @@ export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
   const [newName, setNewName] = useState('')
   const [newMobile, setNewMobile] = useState('')
   const [newPass, setNewPass] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null)
+  const [editTeam, setEditTeam] = useState({ name: '', mobile_number: '', email: '', password: '' })
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [locations, setLocations] = useState<LocItem[]>([])
   const [locationCounts, setLocationCounts] = useState<Record<string, number>>({})
@@ -116,7 +119,7 @@ export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
   }
 
   const loadTeam = async () => {
-    const { data } = await supabase.from('salespersons').select('id,name,mobile_number,role').order('name')
+    const { data } = await supabase.from('salespersons').select('id,name,mobile_number,email,role').order('name')
     setTeam(data || [])
   }
 
@@ -599,15 +602,31 @@ Write ONLY the pitch script. No labels or preamble.`
   }
 
   const addTeamMember = async () => {
-    if (!newName || !newMobile || !newPass) { flash('Fill all fields.', 'err'); return }
-    const { error } = await supabase.from('salespersons').insert({ name: newName, mobile_number: newMobile, password: newPass, role: 'salesperson' })
+    if (!newName || !newMobile || !newPass || !newEmail) { flash('Fill all fields, including email — it\'s needed for Forgot Password.', 'err'); return }
+    const { error } = await supabase.from('salespersons').insert({ name: newName, mobile_number: newMobile, email: newEmail, password: newPass, role: 'salesperson' })
     if (error) { flash('Error: ' + error.message, 'err'); return }
-    flash('✅ Team member added!'); setNewName(''); setNewMobile(''); setNewPass(''); loadTeam()
+    flash('✅ Team member added!'); setNewName(''); setNewMobile(''); setNewEmail(''); setNewPass(''); loadTeam()
   }
 
   const removeTeamMember = async (id: string) => {
     if (!confirm('Remove this person?')) return
     await supabase.from('salespersons').delete().eq('id', id); loadTeam()
+  }
+
+  const startEditTeam = (m: any) => {
+    setEditingTeamId(m.id)
+    setEditTeam({ name: m.name || '', mobile_number: m.mobile_number || '', email: m.email || '', password: '' })
+  }
+
+  const cancelEditTeam = () => { setEditingTeamId(null); setEditTeam({ name: '', mobile_number: '', email: '', password: '' }) }
+
+  const saveEditTeam = async (id: string) => {
+    if (!editTeam.name || !editTeam.mobile_number || !editTeam.email) { flash('Name, mobile and email are all required.', 'err'); return }
+    const payload: any = { name: editTeam.name, mobile_number: editTeam.mobile_number, email: editTeam.email }
+    if (editTeam.password.trim()) payload.password = editTeam.password.trim() // only overwrite password if admin typed a new one
+    const { error } = await supabase.from('salespersons').update(payload).eq('id', id)
+    if (error) { flash('Error: ' + error.message, 'err'); return }
+    flash('✅ Updated!'); cancelEditTeam(); loadTeam()
   }
 
   const updateUnit = (idx: number, field: keyof UnitConfig, val: string) =>
@@ -1031,23 +1050,48 @@ Write ONLY the pitch script. No labels or preamble.`
               <h2 style={{ fontSize: isMobile ? 17 : 20, marginBottom: 20 }}>👥 Team Accounts</h2>
               <div style={card}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>Add New Salesperson</div>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                   <div><label style={lbl}>Name</label><input style={inp} value={newName} onChange={e => setNewName(e.target.value)} placeholder="Rahul S." /></div>
                   <div><label style={lbl}>Mobile</label><input style={inp} value={newMobile} onChange={e => setNewMobile(e.target.value)} placeholder="9902700565" /></div>
+                  <div><label style={lbl}>Email *</label><input style={inp} type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="rahul@example.com" /></div>
                   <div><label style={lbl}>Password</label><input style={inp} type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="Set password" /></div>
                 </div>
+                <div style={{ fontSize: 11, color: '#475569', marginBottom: 10 }}>* Email is required — it's how Forgot Password reset links get sent.</div>
                 <button onClick={addTeamMember} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 7, padding: '10px 22px', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>+ Add Salesperson</button>
               </div>
               <div>
                 {team.map(m => (
-                  <div key={m.id} style={{ background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 10, padding: 16, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 15 }}>{m.name}</div>
-                      <div style={{ fontSize: 13, color: '#94A3B8' }}>{m.mobile_number}</div>
-                      <span style={{ background: m.role === 'admin' ? 'rgba(147,51,234,0.25)' : 'rgba(79,70,229,0.2)', color: m.role === 'admin' ? '#C084FC' : '#A5B4FC', fontSize: 11, padding: '2px 9px', borderRadius: 10, marginTop: 4, display: 'inline-block' }}>{m.role}</span>
-                    </div>
-                    {m.role !== 'admin' && (
-                      <button onClick={() => removeTeamMember(m.id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 5, padding: '6px 14px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>Remove</button>
+                  <div key={m.id} style={{ background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 10, padding: 16, marginBottom: 10 }}>
+                    {editingTeamId === m.id ? (
+                      <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                          <div><label style={lbl}>Name</label><input style={inp} value={editTeam.name} onChange={e => setEditTeam(t => ({ ...t, name: e.target.value }))} /></div>
+                          <div><label style={lbl}>Mobile</label><input style={inp} value={editTeam.mobile_number} onChange={e => setEditTeam(t => ({ ...t, mobile_number: e.target.value }))} /></div>
+                          <div><label style={lbl}>Email</label><input style={inp} type="email" value={editTeam.email} onChange={e => setEditTeam(t => ({ ...t, email: e.target.value }))} /></div>
+                          <div><label style={lbl}>New Password</label><input style={inp} type="password" value={editTeam.password} onChange={e => setEditTeam(t => ({ ...t, password: e.target.value }))} placeholder="Leave blank to keep current" /></div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => saveEditTeam(m.id)} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 6, padding: '7px 16px', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Save</button>
+                          <button onClick={cancelEditTeam} style={{ background: 'transparent', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 6, padding: '7px 16px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 15 }}>{m.name}</div>
+                          <div style={{ fontSize: 13, color: '#94A3B8' }}>{m.mobile_number}</div>
+                          {m.email
+                            ? <div style={{ fontSize: 13, color: '#94A3B8' }}>{m.email}</div>
+                            : <div style={{ fontSize: 12, color: '#F59E0B', marginTop: 2 }}>⚠ No email — Forgot Password won't work until this is added</div>}
+                          <span style={{ background: m.role === 'admin' ? 'rgba(147,51,234,0.25)' : 'rgba(79,70,229,0.2)', color: m.role === 'admin' ? '#C084FC' : '#A5B4FC', fontSize: 11, padding: '2px 9px', borderRadius: 10, marginTop: 4, display: 'inline-block' }}>{m.role}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => startEditTeam(m)} style={{ background: 'rgba(79,70,229,0.3)', border: 'none', borderRadius: 5, padding: '6px 14px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Edit</button>
+                          {m.role !== 'admin' && (
+                            <button onClick={() => removeTeamMember(m.id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 5, padding: '6px 14px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>Remove</button>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))}
