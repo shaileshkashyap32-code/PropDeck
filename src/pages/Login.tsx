@@ -533,19 +533,6 @@ export default function Login({ onLogin, googleError }: Props) {
             </button>
           </>
         )}
-
-        <div
-          style={{
-            marginTop: 24,
-            paddingTop: 16,
-            borderTop: '1px solid #2D2B6B',
-            textAlign: 'center',
-          }}
-        >
-          <p style={{ color: '#6366F1', fontSize: 12 }}>
-            Need access? Contact your admin.
-          </p>
-        </div>
       </div>
     </div>
   );
