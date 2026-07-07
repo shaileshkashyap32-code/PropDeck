@@ -20,16 +20,17 @@ export default async function handler(req, res) {
     return
   }
 
-  const { mobile } = req.body || {}
-  if (!mobile) {
+  const { identifier } = req.body || {}
+  if (!identifier) {
     res.status(400).json({ ok: false })
     return
   }
 
   try {
-    // 1. Look up the salesperson by mobile number.
+    // 1. Look up the salesperson by mobile number OR email — both are valid credentials now.
+    const filter = encodeURIComponent(`(mobile_number.eq.${identifier},email.eq.${identifier})`)
     const lookupRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/salespersons?mobile_number=eq.${encodeURIComponent(mobile)}&select=id,name,email`,
+      `${SUPABASE_URL}/rest/v1/salespersons?or=${filter}&select=id,name,email`,
       {
         headers: {
           apikey: SUPABASE_ANON_KEY,
@@ -41,7 +42,7 @@ export default async function handler(req, res) {
     const person = Array.isArray(rows) ? rows[0] : null
 
     // Always respond the same way whether or not this number/email exists —
-    // avoids letting someone probe which mobile numbers are registered.
+    // avoids letting someone probe which mobile numbers or emails are registered.
     if (!person || !person.email) {
       res.status(200).json({ ok: true })
       return
