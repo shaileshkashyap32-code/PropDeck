@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, getSession } from '../lib/supabase'
 
 interface Props {
   user: any
@@ -119,7 +119,9 @@ export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
   }
 
   const loadTeam = async () => {
-    const { data } = await supabase.from('salespersons').select('id,name,mobile_number,email,role').order('name')
+    // Team data lives in the now-locked salespersons table, so it comes back
+    // through an admin-only function that checks our session token first.
+    const { data } = await supabase.rpc('admin_list_team', { p_token: getSession() })
     setTeam(data || [])
   }
 
@@ -132,18 +134,17 @@ export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
   const setF = (k: keyof FormData, v: any) => setForm(f => ({ ...f, [k]: v }))
 
   // ─── Gemini helper ────────────────────────────────────────────────────────
-  const callGemini = async (prompt: string): Promise<string> => {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      }
-    )
+  // Calls go through our own /api/gemini server function so the API key stays
+  // on the server and never ships in the browser bundle. Pass useSearch=true to
+  // let Gemini ground its answer in a live Google search.
+  const callGemini = async (prompt: string, useSearch = false): Promise<string> => {
+    const res = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, useSearch })
+    })
     const data = await res.json()
-    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+    return data.text?.trim() || ''
   }
 
   const safeJSON = (raw: string) => {
@@ -368,20 +369,7 @@ Return ONLY valid JSON, no markdown fences, no citation numbers inside text. Fol
 }`
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            tools: [{ google_search: {} }]
-          })
-        }
-      )
-      const d = await res.json()
-      const raw = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+      const raw = await callGemini(prompt, true)
       const parsed = safeJSON(raw)
       return parsed || { investor: [], first_time_buyer: [], upgrade_buyer: [], nri: [] }
     } catch {
@@ -603,14 +591,18 @@ Write ONLY the pitch script. No labels or preamble.`
 
   const addTeamMember = async () => {
     if (!newName || !newMobile || !newPass || !newEmail) { flash('Fill all fields, including email — it\'s needed for Forgot Password.', 'err'); return }
-    const { error } = await supabase.from('salespersons').insert({ name: newName, mobile_number: newMobile, email: newEmail, password: newPass, role: 'salesperson' })
+    const { error } = await supabase.rpc('admin_add_salesperson', {
+      p_token: getSession(), p_name: newName, p_mobile: newMobile, p_email: newEmail, p_password: newPass,
+    })
     if (error) { flash('Error: ' + error.message, 'err'); return }
     flash('✅ Team member added!'); setNewName(''); setNewMobile(''); setNewEmail(''); setNewPass(''); loadTeam()
   }
 
   const removeTeamMember = async (id: string) => {
     if (!confirm('Remove this person?')) return
-    await supabase.from('salespersons').delete().eq('id', id); loadTeam()
+    const { error } = await supabase.rpc('admin_remove_salesperson', { p_token: getSession(), p_id: id })
+    if (error) { flash('Error: ' + error.message, 'err'); return }
+    loadTeam()
   }
 
   const startEditTeam = (m: any) => {
@@ -622,9 +614,15 @@ Write ONLY the pitch script. No labels or preamble.`
 
   const saveEditTeam = async (id: string) => {
     if (!editTeam.name || !editTeam.mobile_number || !editTeam.email) { flash('Name, mobile and email are all required.', 'err'); return }
-    const payload: any = { name: editTeam.name, mobile_number: editTeam.mobile_number, email: editTeam.email }
-    if (editTeam.password.trim()) payload.password = editTeam.password.trim() // only overwrite password if admin typed a new one
-    const { error } = await supabase.from('salespersons').update(payload).eq('id', id)
+    // Passing an empty password tells the function to keep the current one.
+    const { error } = await supabase.rpc('admin_update_salesperson', {
+      p_token: getSession(),
+      p_id: id,
+      p_name: editTeam.name,
+      p_mobile: editTeam.mobile_number,
+      p_email: editTeam.email,
+      p_password: editTeam.password.trim(),
+    })
     if (error) { flash('Error: ' + error.message, 'err'); return }
     flash('✅ Updated!'); cancelEditTeam(); loadTeam()
   }
