@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, saveSession } from '../lib/supabase';
 
 interface Props {
   onLogin: (user: any) => void;
@@ -33,14 +33,17 @@ export default function Login({ onLogin, googleError }: Props) {
     setLoading(true);
     setError('');
 
-    const { data, error: dbError } = await supabase
-      .from('salespersons')
-      .select('*')
-      .or(`mobile_number.eq.${identifier},email.eq.${identifier}`)
-      .eq('password', password)
-      .maybeSingle();
+    // Password is verified INSIDE the database by verify_login (which compares
+    // bcrypt hashes) — the browser never downloads the password. On success we
+    // get back the account plus a session token to remember the login by.
+    const { data, error: dbError } = await supabase.rpc('verify_login', {
+      p_identifier: identifier,
+      p_password: password,
+    });
 
-    if (dbError || !data) {
+    const person = Array.isArray(data) ? data[0] : data;
+
+    if (dbError || !person) {
       setError(
         dbError
           ? `Error: ${dbError.message}`
@@ -50,7 +53,8 @@ export default function Login({ onLogin, googleError }: Props) {
       return;
     }
 
-    onLogin(data);
+    saveSession(person.session_token);
+    onLogin(person);
   };
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
