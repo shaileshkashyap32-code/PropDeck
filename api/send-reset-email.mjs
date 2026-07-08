@@ -1,11 +1,15 @@
 import crypto from 'crypto'
 
-// IMPORTANT — verify these two names against your actual src/lib/supabase.ts.
 // This function runs server-side on Vercel, so it can read ANY env var set in your
-// Vercel project settings regardless of the VITE_ prefix — but the NAMES below have
-// to match whatever you actually named them there.
+// Vercel project settings regardless of the VITE_ prefix.
+//
+// SUPABASE_SERVICE_ROLE_KEY is required now that the salespersons table is locked
+// down with Row Level Security — the public anon key can no longer read it, but the
+// service-role key (server-only, never shipped to the browser) can. Add it in
+// Vercel → Settings → Environment Variables. Find the value in
+// Supabase → Settings → API → "service_role" secret.
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 // New — get a free API key at https://resend.com and add it as RESEND_API_KEY
 // in Vercel → Settings → Environment Variables.
@@ -33,8 +37,8 @@ export default async function handler(req, res) {
       `${SUPABASE_URL}/rest/v1/salespersons?or=${filter}&select=id,name,email`,
       {
         headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         },
       }
     )
@@ -59,8 +63,8 @@ export default async function handler(req, res) {
     await fetch(`${SUPABASE_URL}/rest/v1/salespersons?id=eq.${person.id}`, {
       method: 'PATCH',
       headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         'Content-Type': 'application/json',
         Prefer: 'return=minimal',
       },
