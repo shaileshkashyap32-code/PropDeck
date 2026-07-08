@@ -5,7 +5,7 @@ import ProjectPage from './pages/ProjectPage'
 import AdminPanel from './pages/AdminPanel'
 import Profile from './pages/Profile'
 import ResetPassword from './pages/ResetPassword'
-import { supabase } from './lib/supabase'
+import { supabase, saveSession, getSession, clearSession } from './lib/supabase'
 
 function App() {
   const [user, setUser] = useState<any>(null)
@@ -34,13 +34,14 @@ function App() {
     const email = session?.user?.email
     if (!email) return false
 
-    const { data: person } = await supabase
-      .from('salespersons')
-      .select('*')
-      .eq('email', email)
-      .maybeSingle()
+    // link_google_session reads the verified email straight from the Google
+    // sign-in token server-side, matches it against the team, and issues our
+    // own session token. It returns nothing if the email isn't on the team.
+    const { data } = await supabase.rpc('link_google_session')
+    const person = Array.isArray(data) ? data[0] : data
 
     if (person) {
+      saveSession(person.session_token)
       setUser(person)
       setView(person.role === 'admin' ? 'admin' : 'home')
       return true
@@ -56,14 +57,30 @@ function App() {
   }
 
   useEffect(() => {
-    // On first load, check whether we're coming back from a Google redirect
-    // (or already have a live session).
-    supabase.auth.getSession().then(async ({ data }) => {
+    const boot = async () => {
+      // 1. Try to restore a previous PropDeck login (mobile/email or Google)
+      //    from the session token we saved in localStorage.
+      const token = getSession()
+      if (token) {
+        const { data } = await supabase.rpc('validate_session', { p_token: token })
+        const person = Array.isArray(data) ? data[0] : data
+        if (person) {
+          setUser(person)
+          setView(person.role === 'admin' ? 'admin' : 'home')
+          setCheckingGoogle(false)
+          return
+        }
+        clearSession() // expired or revoked
+      }
+
+      // 2. Otherwise, check whether we're coming back from a Google redirect.
+      const { data } = await supabase.auth.getSession()
       if (data.session) {
         await handleGoogleSession(data.session)
       }
       setCheckingGoogle(false)
-    })
+    }
+    boot()
 
     // Also react to the SIGNED_IN event fired right after the OAuth redirect.
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
@@ -75,9 +92,12 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Make sure logging out clears the Supabase Auth session too, not just our
-  // local user — otherwise a Google user would get silently re-logged-in.
-  const doLogout = () => {
+  // Clear the PropDeck session (server + local) and the Supabase Auth session,
+  // otherwise a Google user would get silently re-logged-in.
+  const doLogout = async () => {
+    const token = getSession()
+    if (token) await supabase.rpc('logout', { p_token: token })
+    clearSession()
     supabase.auth.signOut()
     setUser(null)
     setView('home')
