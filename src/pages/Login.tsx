@@ -76,7 +76,7 @@ export default function Login({ onLogin, googleError }: Props) {
 
     setForgotMsgType('ok');
     setForgotMsg(
-      "If that matches an account with an email on file, we've sent a reset link. Check your inbox (and spam folder)."
+      "If that account exists, we've sent a reset link — check your inbox and spam."
     );
     setForgotLoading(false);
   };
