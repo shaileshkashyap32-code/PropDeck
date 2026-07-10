@@ -453,7 +453,7 @@ Write ONLY the pitch script. No labels or preamble.`
   const addLocation = async () => {
     const name = newLocation.trim()
     if (!name || addLocIsDuplicate) return
-    const { error } = await supabase.from('locations').insert({ name })
+    const { error } = await supabase.rpc('admin_add_location', { p_token: getSession(), p_name: name })
     if (error) { flash('Error: ' + error.message, 'err'); return }
     flash(`✅ "${name}" added!`)
     setNewLocation(''); setAddLocWarning(''); setAddLocForce(false); setAddLocIsDuplicate(false)
@@ -464,7 +464,8 @@ Write ONLY the pitch script. No labels or preamble.`
     const count = locationCounts[name] || 0
     if (count > 0) { flash(`Cannot delete "${name}" — ${count} project${count > 1 ? 's' : ''} use this location.`, 'err'); return }
     if (!confirm(`Delete "${name}"?`)) return
-    await supabase.from('locations').delete().eq('id', id)
+    const { error } = await supabase.rpc('admin_delete_location', { p_token: getSession(), p_id: id })
+    if (error) { flash('Error: ' + error.message, 'err'); return }
     flash(`"${name}" removed.`); loadLocations()
   }
 
@@ -501,7 +502,8 @@ Write ONLY the pitch script. No labels or preamble.`
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this project?')) return
-    await supabase.from('projects').delete().eq('id', id)
+    const { error } = await supabase.rpc('admin_delete_project', { p_token: getSession(), p_id: id })
+    if (error) { flash('Error: ' + error.message, 'err'); return }
     flash('Project deleted.'); loadProjects()
   }
 
@@ -554,22 +556,19 @@ Write ONLY the pitch script. No labels or preamble.`
       tags: form.tags ? form.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : null,
     }
 
-    let savedId: string | null = editId
-    let saveError: any = null
-
-    if (editId) {
-      const { error } = await supabase.from('projects').update(payload).eq('id', editId)
-      saveError = error
-    } else {
-      const { data, error } = await supabase.from('projects').insert(payload).select('id').single()
-      saveError = error
-      if (data) savedId = (data as any).id
-    }
+    const { data: savedIdData, error: saveError } = await supabase.rpc('admin_save_project', {
+      p_token: getSession(), p_id: editId, p_payload: payload,
+    })
 
     if (saveError) { setSaving(false); flash('Save error: ' + saveError.message, 'err'); return }
 
+    const savedId: string | null = savedIdData
+
     const locExists = locations.find(l => l.name.toLowerCase() === form.location.toLowerCase())
-    if (!locExists) { await supabase.from('locations').insert({ name: form.location.trim() }); loadLocations() }
+    if (!locExists) {
+      await supabase.rpc('admin_add_location', { p_token: getSession(), p_name: form.location.trim() })
+      loadLocations()
+    }
 
     setSaving(false)
     flash('✅ Project saved! Generating persona cheat sheets with web search — takes 15-20 sec…')
@@ -578,7 +577,9 @@ Write ONLY the pitch script. No labels or preamble.`
     const personas = await generatePersonaPitches({ ...payload, usps: uspsList }, validConfigs)
 
     if (savedId && (personas.investor || personas.end_user)) {
-      await supabase.from('projects').update({ persona_pitches: personas }).eq('id', savedId)
+      await supabase.rpc('admin_update_project_personas', {
+        p_token: getSession(), p_id: savedId, p_personas: personas,
+      })
     }
 
     setGeneratingPersonas(false)

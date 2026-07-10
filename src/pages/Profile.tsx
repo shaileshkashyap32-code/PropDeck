@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getSession } from '../lib/supabase';
 
 interface Salesperson {
   id: string;
@@ -41,10 +41,7 @@ export default function Profile({ user, onBack, onLogout }: ProfileProps) {
         .from('projects')
         .select('id, name, developer, location, price_min, price_max')
         .order('name'),
-      supabase
-        .from('whatsapp_templates')
-        .select('project_id, message')
-        .eq('salesperson_id', user.id),
+      supabase.rpc('get_my_whatsapp_templates', { p_token: getSession() }),
     ]);
     if (projectsData) setProjects(projectsData);
     if (templatesData) {
@@ -62,12 +59,9 @@ export default function Profile({ user, onBack, onLogout }: ProfileProps) {
     if (!message) return;
     setSaving(prev => ({ ...prev, [projectId]: true }));
     setSaveStatus(prev => ({ ...prev, [projectId]: null }));
-    const { error } = await supabase
-      .from('whatsapp_templates')
-      .upsert(
-        { salesperson_id: user.id, project_id: projectId, message },
-        { onConflict: 'salesperson_id,project_id' }
-      );
+    const { error } = await supabase.rpc('save_my_whatsapp_template', {
+      p_token: getSession(), p_project_id: projectId, p_message: message,
+    });
     setSaving(prev => ({ ...prev, [projectId]: false }));
     if (error) {
       setSaveStatus(prev => ({ ...prev, [projectId]: 'error' }));
