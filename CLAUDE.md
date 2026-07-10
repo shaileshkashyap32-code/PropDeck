@@ -63,12 +63,31 @@ Do not revert any of this.
   the client only ever calls `/api/gemini`.
 - **`api/send-reset-email.mjs`**: uses `SUPABASE_SERVICE_ROLE_KEY` (server-only) because RLS
   blocks the anon key from reading `salespersons` directly.
-- **Direct `supabase.from(...)` table access** (not through an RPC) still happens for
-  `projects`, `locations`, and `whatsapp_templates` — these are not RLS-locked yet (see
-  Stage 2 below).
+
+## Security model (Stage 2 — live on `main` and in Supabase)
+
+Do not revert any of this either. SQL lives in `supabase/stage2_security.sql` (idempotent —
+safe to re-run in the Supabase SQL editor).
+
+- **RLS**: enabled on `projects`, `locations`, `whatsapp_templates`.
+- **`projects` / `locations`**: public `SELECT` policy kept (listings still load for anyone with
+  the anon key), but there are no insert/update/delete policies — all writes go through
+  admin-gated `SECURITY DEFINER` functions instead:
+  - `admin_save_project(p_token, p_id, p_payload)` — insert (`p_id` null) or update a project
+    from the same payload object `AdminPanel.tsx`'s `save()` builds
+  - `admin_update_project_personas(p_token, p_id, p_personas)` — sets `persona_pitches` after
+    the Gemini call in `save()` returns
+  - `admin_delete_project(p_token, p_id)`
+  - `admin_add_location(p_token, p_name)`, `admin_delete_location(p_token, p_id)` — the delete
+    function re-checks server-side that no project still references the location
+  - All of the above call `is_admin_session(p_token)` first and raise an exception if it's false.
+- **`whatsapp_templates`**: no public policies at all — fully private, reachable only through:
+  - `get_my_whatsapp_templates(p_token)` / `save_my_whatsapp_template(p_token, p_project_id, p_message)`
+  - Both resolve the caller's own salesperson id from `validate_session(p_token)` server-side,
+    so a caller can never read or write another salesperson's templates.
+- `Home.tsx` and `ProjectPage.tsx` are unaffected — they only ever `SELECT` from
+  `projects`/`locations`, which stays public.
 
 ## Known follow-ups (not started)
 
-- **Stage 2**: lock writes on `projects`, `locations`, and `whatsapp_templates` to admins only
-  (currently writable via the anon key with no role check at the DB level).
 - `AdminPanel.tsx` is ~1100 lines and could be split into smaller components.
