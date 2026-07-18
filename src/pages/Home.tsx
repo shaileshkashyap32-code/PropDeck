@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import { supabase } from '../lib/supabase';
 import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
+import MultiSelect from '../components/MultiSelect';
 
 interface Project {
   id: string;
@@ -26,6 +28,22 @@ interface Props {
 }
 
 const TYPES = ['Studio','1BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Penthouse','Villa','Townhouse','Plot'];
+// The handful of configurations that come up in most conversations. These sit
+// outside the dropdown as one-click chips; the full list is still in it.
+const POPULAR_TYPES = ['1BHK','2BHK','3BHK','4BHK'];
+const POPULAR_LOCATION_COUNT = 5;
+
+// Shared look for the quick-pick chips under both dropdowns.
+const chipStyle = (on: boolean): CSSProperties => ({
+  padding: '4px 11px',
+  borderRadius: 20,
+  fontSize: 12,
+  cursor: 'pointer',
+  border: '1px solid',
+  borderColor: on ? '#6366F1' : 'rgba(79,70,229,0.3)',
+  background: on ? 'rgba(99,102,241,0.3)' : 'transparent',
+  color: on ? '#A5B4FC' : '#64748B',
+});
 const PMIN = 5000000;
 const PMAX = 80000000;
 const STEP = 500000;
@@ -76,6 +94,17 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
   }, []);
 
   const toggleType = (b: string) => setSelType((p) => (p.includes(b) ? p.filter((x) => x !== b) : [...p, b]));
+
+  // "Commonly used" locations are derived from the catalogue rather than
+  // hardcoded, so a suggestion can never point at zero projects.
+  const popularLocations = useMemo(() => {
+    const counts = new Map<string, number>();
+    projects.forEach((p) => counts.set(p.location, (counts.get(p.location) ?? 0) + 1));
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, POPULAR_LOCATION_COUNT)
+      .map(([name]) => name);
+  }, [projects]);
 
   const clearAll = () => {
     setBMin(PMIN); setBMax(PMAX); setLocation(''); setSelType([]); setStatus('all'); setSearch('');
@@ -137,7 +166,7 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
             </div>
           </div>
 
-          {/* Location — dynamic from DB */}
+          {/* Location — full list in the dropdown, busiest few as chips below */}
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 8 }}>Location</div>
             <select
@@ -150,21 +179,43 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
                 <option key={l} value={l} style={{ background: '#1E1B4B' }}>{l}</option>
               ))}
             </select>
+            {popularLocations.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
+                {popularLocations.map((l) => {
+                  const on = location === l;
+                  return (
+                    <button
+                      key={l}
+                      // Tapping the active chip clears it, so it doubles as an undo.
+                      onClick={() => setLocation(on ? '' : l)}
+                      style={{ ...chipStyle(on), maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                      {l}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Property Type */}
+          {/* Property Type — same shape: everything in the dropdown, the
+              common configurations as chips underneath. */}
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 10 }}>Property Type</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {TYPES.map((b) => {
-                const on = selType.includes(b);
-                const isPlot = b === 'Plot';
-                return (
-                  <button key={b} onClick={() => toggleType(b)} style={{ padding: '4px 11px', borderRadius: 20, fontSize: 12, cursor: 'pointer', border: '1px solid', borderColor: on ? (isPlot ? '#10B981' : '#6366F1') : 'rgba(79,70,229,0.3)', background: on ? (isPlot ? 'rgba(16,185,129,0.2)' : 'rgba(99,102,241,0.3)') : 'transparent', color: on ? (isPlot ? '#10B981' : '#A5B4FC') : '#64748B' }}>
-                    {isPlot ? '🏞️ Plot' : b}
-                  </button>
-                );
-              })}
+            <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 8 }}>Property Type</div>
+            <MultiSelect
+              options={TYPES}
+              selected={selType}
+              onToggle={toggleType}
+              onClear={() => setSelType([])}
+              placeholder="All Types"
+              renderLabel={(t) => (t === 'Plot' ? '🏞️ Plot' : t)}
+            />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
+              {POPULAR_TYPES.map((b) => (
+                <button key={b} onClick={() => toggleType(b)} style={chipStyle(selType.includes(b))}>
+                  {b}
+                </button>
+              ))}
             </div>
           </div>
 
