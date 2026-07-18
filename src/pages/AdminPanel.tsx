@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase, getSession } from '../lib/supabase'
+import AppShell from '../components/AppShell'
 
 interface Props {
   user: any
@@ -649,10 +650,10 @@ Write ONLY the pitch script. No labels or preamble.`
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0F0C29,#1E1B4B)', color: 'white', display: 'flex', flexDirection: 'column' }}>
-
-      {/* NAV */}
-      <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(12px)', flexShrink: 0 }}>
+    <AppShell
+      mainStyle={{ padding: isMobile ? 16 : 24 }}
+      topBar={
+        <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>P</div>
           {!isMobile && <span style={{ fontWeight: 700, fontSize: 17, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PropDeck</span>}
@@ -663,10 +664,9 @@ Write ONLY the pitch script. No labels or preamble.`
           {!isMobile && <span style={{ fontSize: 13, color: '#A5B4FC' }}>{user.name}</span>}
           <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 6, padding: '6px 12px', color: '#A5B4FC', cursor: 'pointer', fontSize: 12 }}>Logout</button>
         </div>
-      </nav>
-
-      {/* MOBILE TABS */}
-      {isMobile && (
+        </nav>
+      }
+      subBar={isMobile && (
         <div style={{ display: 'flex', background: 'rgba(10,8,30,0.9)', borderBottom: '1px solid rgba(79,70,229,0.2)', overflowX: 'auto' }}>
           {NAV_ITEMS.map(([k, l]) => (
             <button key={k} onClick={() => { setSection(k as any); if (k !== 'add') resetForm() }}
@@ -676,12 +676,8 @@ Write ONLY the pitch script. No labels or preamble.`
           ))}
         </div>
       )}
-
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-        {/* DESKTOP SIDEBAR */}
-        {!isMobile && (
-          <aside style={{ width: 220, background: 'rgba(10,8,30,0.8)', borderRight: '1px solid rgba(79,70,229,0.2)', padding: 16, flexShrink: 0 }}>
+      sidebar={!isMobile && (
+        <aside style={{ width: 220, background: 'rgba(10,8,30,0.8)', borderRight: '1px solid rgba(79,70,229,0.2)', padding: 16, flexShrink: 0 }}>
             {NAV_ITEMS.map(([k, l]) => (
               <button key={k} onClick={() => { setSection(k as any); if (k !== 'add') resetForm() }}
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', marginBottom: 6, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, background: section === k ? 'rgba(79,70,229,0.35)' : 'transparent', color: section === k ? '#A5B4FC' : '#64748B' }}>
@@ -692,9 +688,7 @@ Write ONLY the pitch script. No labels or preamble.`
             ))}
           </aside>
         )}
-
-        {/* MAIN CONTENT */}
-        <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? 16 : 24 }}>
+    >
           {msg && (
             <div style={{ background: msgType === 'ok' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', border: `1px solid ${msgType === 'ok' ? '#10B981' : '#EF4444'}`, borderRadius: 8, padding: '10px 16px', marginBottom: 18, color: msgType === 'ok' ? '#10B981' : '#FCA5A5', fontSize: 14 }}>
               {msg}
@@ -1098,8 +1092,6 @@ Write ONLY the pitch script. No labels or preamble.`
             </div>
           )}
 
-        </main>
-      </div>
-    </div>
+    </AppShell>
   )
 }

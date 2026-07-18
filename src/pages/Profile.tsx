@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, getSession } from '../lib/supabase';
+import AppShell from '../components/AppShell';
 
 interface Salesperson {
   id: string;
@@ -86,11 +87,10 @@ export default function Profile({ user, onBack, onLogout }: ProfileProps) {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0F0C29, #1E1B4B)' }}>
-
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 h-14 flex items-center justify-between px-4 backdrop-blur-md"
-        style={{ background: 'rgba(15,12,41,0.85)', borderBottom: '1px solid rgba(79,70,229,0.2)' }}>
+    <AppShell
+      topBar={
+        <nav className="h-14 flex items-center justify-between px-4"
+          style={{ background: 'rgba(15,12,41,0.85)', borderBottom: '1px solid rgba(79,70,229,0.2)', flexShrink: 0 }}>
         <button onClick={onBack}
           className="flex items-center gap-1.5 text-sm text-indigo-300 hover:text-white transition-colors">
           ← Back
@@ -100,8 +100,9 @@ export default function Profile({ user, onBack, onLogout }: ProfileProps) {
           className="text-xs text-red-400 hover:text-red-300 transition-colors">
           Logout
         </button>
-      </nav>
-
+        </nav>
+      }
+    >
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
 
         {/* User Card */}
@@ -191,6 +192,6 @@ export default function Profile({ user, onBack, onLogout }: ProfileProps) {
         </div>
 
       </div>
-    </div>
+    </AppShell>
   );
 }

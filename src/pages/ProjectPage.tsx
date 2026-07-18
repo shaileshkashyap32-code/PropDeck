@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import AppShell from '../components/AppShell';
 
 interface Landmark {
   name: string;
@@ -151,7 +152,7 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
 
   // ── Nav ────────────────────────────────────────────────────────────────────
   const nav = (
-    <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(12px)' }}>
+    <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>P</div>
         <span style={{ fontWeight: 700, fontSize: 17, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PropDeck</span>
@@ -164,15 +165,14 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
     </nav>
   );
 
-  if (loading) return <div style={{ minHeight: '100vh', background: '#0F0C29', color: 'white' }}>{nav}<div style={{ textAlign: 'center', padding: 80, color: '#A5B4FC' }}>Loading...</div></div>;
-  if (!project) return <div style={{ minHeight: '100vh', background: '#0F0C29', color: 'white' }}>{nav}<div style={{ textAlign: 'center', padding: 80, color: '#A5B4FC' }}>Not found.</div></div>;
+  if (loading) return <AppShell topBar={nav}><div style={{ textAlign: 'center', padding: 80, color: '#A5B4FC' }}>Loading...</div></AppShell>;
+  if (!project) return <AppShell topBar={nav}><div style={{ textAlign: 'center', padding: 80, color: '#A5B4FC' }}>Not found.</div></AppShell>;
 
   const lms: Landmark[] = Array.isArray(project.landmarks) ? project.landmarks : [];
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0F0C29,#1E1B4B)', color: 'white', display: 'flex', flexDirection: 'column' }}>
-      {nav}
+    <AppShell topBar={nav}>
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: 24, width: '100%', display: 'grid', gridTemplateColumns: '1fr 280px', gap: 24, alignItems: 'start', boxSizing: 'border-box' }}>
 
         {/* ── LEFT ── */}
@@ -386,7 +386,7 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
         </div>
 
         {/* ── RIGHT SIDEBAR ── */}
-        <div style={{ position: 'sticky', top: 72 }}>
+        <div style={{ position: 'sticky', top: 24 }}>
           <div style={{ background: '#1E1B4B', border: '1px solid rgba(79,70,229,0.3)', borderRadius: 12, padding: 18, marginBottom: 14 }}>
             <div style={{ fontSize: 24, fontWeight: 700, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 4 }}>{fmt(project.price_min)}</div>
             <div style={{ fontSize: 12, color: '#64748B', marginBottom: 14 }}>Starting price onwards</div>
@@ -415,6 +415,6 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
           )}
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import AppShell from '../components/AppShell';
 
 interface Project {
   id: string;
@@ -92,9 +93,10 @@ export default function Home({ user, onLogout, onViewProject, onGoAdmin, onGoPro
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0F0C29,#1E1B4B)', color: 'white', display: 'flex', flexDirection: 'column' }}>
-      {/* NAVBAR */}
-      <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(12px)', flexShrink: 0 }}>
+    <AppShell
+      mainStyle={{ padding: 20 }}
+      topBar={
+        <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>P</div>
           <span style={{ fontWeight: 700, fontSize: 17, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PropDeck</span>
@@ -115,10 +117,9 @@ export default function Home({ user, onLogout, onViewProject, onGoAdmin, onGoPro
           <span style={{ fontSize: 13, color: '#A5B4FC' }}>{user.name}</span>
           <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 6, padding: '6px 14px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Logout</button>
         </div>
-      </nav>
-
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* SIDEBAR */}
+        </nav>
+      }
+      sidebar={
         <aside style={{ width: 248, background: 'rgba(10,8,30,0.8)', borderRight: '1px solid rgba(79,70,229,0.2)', padding: 18, overflowY: 'auto', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#A5B4FC', textTransform: 'uppercase', letterSpacing: 1 }}>Filters</span>
@@ -180,9 +181,8 @@ export default function Home({ user, onLogout, onViewProject, onGoAdmin, onGoPro
             </div>
           </div>
         </aside>
-
-        {/* CARDS */}
-        <main style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+      }
+    >
           <div style={{ fontSize: 13, color: '#A5B4FC', marginBottom: 16 }}>
             {loading ? 'Loading...' : `Showing ${shown.length} of ${projects.length} projects`}
           </div>
@@ -199,9 +199,7 @@ export default function Home({ user, onLogout, onViewProject, onGoAdmin, onGoPro
               {shown.map((p) => <Card key={p.id} project={p} onView={onViewProject} />)}
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </AppShell>
   );
 }
 
