@@ -64,13 +64,8 @@ export function buildAccountMenu(opts: {
       { icon: '👤', label: 'My Profile', onSelect: opts.onGoProfile },
       { icon: '💬', label: 'WhatsApp Templates', onSelect: opts.onGoTemplates },
     ],
-    // Placeholders — wire up an onSelect and drop `soon` when each is built.
-    [
-      { icon: '🔔', label: 'Notifications', soon: true },
-      { icon: '📊', label: 'My Activity', soon: true },
-      { icon: '🎚️', label: 'Settings', soon: true },
-      { icon: '❓', label: 'Help & Support', soon: true },
-    ],
+    // Future entries go here as their own group, e.g.
+    //   [{ icon: '🔔', label: 'Notifications', onSelect: opts.onGoNotifications }],
     [{ icon: '↩', label: 'Logout', onSelect: opts.onLogout, danger: true }],
   ]
 }
