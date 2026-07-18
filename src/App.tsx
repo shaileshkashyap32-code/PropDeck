@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import ProjectPage from './pages/ProjectPage'
@@ -7,9 +7,35 @@ import Profile from './pages/Profile'
 import ResetPassword from './pages/ResetPassword'
 import { supabase, saveSession, getSession, clearSession } from './lib/supabase'
 
+type View = 'home' | 'project' | 'admin' | 'profile'
+
+// ─── Remembered view ────────────────────────────────────────────────────────
+// There's no router, so `view` lives only in React state and a refresh would
+// otherwise always drop you back on your role's default screen — which meant an
+// admin browsing Home got bounced into the admin panel on every reload.
+// Remember where you are so a refresh keeps you there. sessionStorage rather
+// than localStorage so two tabs can sit on different screens independently.
+const VIEW_KEY = 'pd_view'
+const VIEWS: View[] = ['home', 'project', 'admin', 'profile']
+
+function readSavedView(): { view: View; projectId: string | null } | null {
+  try {
+    const raw = sessionStorage.getItem(VIEW_KEY)
+    if (!raw) return null
+    const saved = JSON.parse(raw)
+    if (!VIEWS.includes(saved?.view)) return null
+    const projectId = typeof saved.projectId === 'string' ? saved.projectId : null
+    // A saved 'project' view is useless if we no longer know which project.
+    if (saved.view === 'project' && !projectId) return null
+    return { view: saved.view, projectId }
+  } catch {
+    return null
+  }
+}
+
 function App() {
   const [user, setUser] = useState<any>(null)
-  const [view, setView] = useState<'home' | 'project' | 'admin' | 'profile'>('home')
+  const [view, setView] = useState<View>('home')
   const [projectId, setProjectId] = useState<string | null>(null)
 
   // While we check for a returning Google session on first load, show a splash
@@ -23,6 +49,23 @@ function App() {
   const [resetToken, setResetToken] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get('reset_token')
   )
+
+  // Whether a PropDeck login is already in place. Kept in a ref, not state,
+  // because the auth listener below is registered once and would otherwise
+  // close over a stale `user`.
+  const loggedInRef = useRef(false)
+
+  // Land on the screen they were last on; fall back to the role's default the
+  // first time (admins straight into the panel, everyone else on Home).
+  const applyLandingView = (person: any) => {
+    const saved = readSavedView()
+    if (saved) {
+      setView(saved.view)
+      setProjectId(saved.projectId)
+    } else {
+      setView(person.role === 'admin' ? 'admin' : 'home')
+    }
+  }
 
   // ─── Google login glue ──────────────────────────────────────────────────
   // Supabase Auth proves the person owns a Google email. Our salespersons table
@@ -43,7 +86,8 @@ function App() {
     if (person) {
       saveSession(person.session_token)
       setUser(person)
-      setView(person.role === 'admin' ? 'admin' : 'home')
+      loggedInRef.current = true
+      applyLandingView(person)
       return true
     }
 
@@ -66,7 +110,10 @@ function App() {
         const person = Array.isArray(data) ? data[0] : data
         if (person) {
           setUser(person)
-          setView(person.role === 'admin' ? 'admin' : 'home')
+          loggedInRef.current = true
+          // Restoring a session means a refresh (or a reopened tab), so go back
+          // to the screen they were on rather than the role default.
+          applyLandingView(person)
           setCheckingGoogle(false)
           return
         }
@@ -83,8 +130,15 @@ function App() {
     boot()
 
     // Also react to the SIGNED_IN event fired right after the OAuth redirect.
+    //
+    // Careful: Supabase fires SIGNED_IN for more than an actual sign-in — it
+    // also fires when it rehydrates a stored Google session on page load, and
+    // again on every token refresh. Re-running the link on those would re-apply
+    // the landing view and yank an admin out of whatever screen they were on,
+    // moments after boot() had correctly restored it. So only treat this as a
+    // real sign-in when no PropDeck login is in place yet.
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
+      if (event === 'SIGNED_IN' && session && !loggedInRef.current) {
         handleGoogleSession(session)
       }
     })
@@ -92,12 +146,22 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Keep the remembered view in step with the current one, so a refresh at any
+  // point lands back here. Only once logged in — a logged-out tab has no view
+  // worth restoring.
+  useEffect(() => {
+    if (!user) return
+    sessionStorage.setItem(VIEW_KEY, JSON.stringify({ view, projectId }))
+  }, [user, view, projectId])
+
   // Clear the PropDeck session (server + local) and the Supabase Auth session,
   // otherwise a Google user would get silently re-logged-in.
   const doLogout = async () => {
     const token = getSession()
     if (token) await supabase.rpc('logout', { p_token: token })
     clearSession()
+    sessionStorage.removeItem(VIEW_KEY)
+    loggedInRef.current = false
     supabase.auth.signOut()
     setUser(null)
     setView('home')
@@ -138,6 +202,7 @@ function App() {
       googleError={googleError}
       onLogin={(u: any) => {
         setUser(u)
+        loggedInRef.current = true
         setView(u.role === 'admin' ? 'admin' : 'home')
       }}
     />
