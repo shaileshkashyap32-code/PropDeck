@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { supabase, getSession } from '../lib/supabase'
 import AppShell from '../components/AppShell'
+import UserMenu, { buildAccountMenu } from '../components/UserMenu'
 
 interface Props {
   user: any
   onGoHome: () => void
+  onGoAdmin?: () => void
+  onGoProfile: () => void
+  onGoTemplates: () => void
   onLogout: () => void
 }
 
@@ -69,7 +73,7 @@ function fmt(n: number) {
   return `₹${n}`
 }
 
-export default function AdminPanel({ user, onGoHome, onLogout }: Props) {
+export default function AdminPanel({ user, ...nav }: Props) {
   const [section, setSection] = useState<'projects' | 'add' | 'locations' | 'team'>('projects')
   const [projects, setProjects] = useState<Project[]>([])
   const [form, setForm] = useState<FormData>(EMPTY)
@@ -659,11 +663,8 @@ Write ONLY the pitch script. No labels or preamble.`
           {!isMobile && <span style={{ fontWeight: 700, fontSize: 17, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PropDeck</span>}
           <span style={{ fontSize: 11, background: 'rgba(147,51,234,0.3)', color: '#C084FC', padding: '2px 8px', borderRadius: 10 }}>Admin</span>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button onClick={onGoHome} style={{ background: 'rgba(79,70,229,0.2)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 7, padding: '6px 12px', color: '#A5B4FC', cursor: 'pointer', fontSize: 12 }}>← Home</button>
-          {!isMobile && <span style={{ fontSize: 13, color: '#A5B4FC' }}>{user.name}</span>}
-          <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 6, padding: '6px 12px', color: '#A5B4FC', cursor: 'pointer', fontSize: 12 }}>Logout</button>
-        </div>
+        {/* Already in the panel, so the menu drops its Admin Panel entry here. */}
+        <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoAdmin: undefined })} />
         </nav>
       }
       subBar={isMobile && (

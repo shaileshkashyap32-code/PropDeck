@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import AppShell from '../components/AppShell';
+import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 
 interface Project {
   id: string;
@@ -16,10 +17,12 @@ interface Project {
 }
 interface Props {
   user: any
-  onLogout: () => void
   onViewProject: (id: string) => void
+  onGoHome: () => void
   onGoAdmin?: () => void
   onGoProfile: () => void
+  onGoTemplates: () => void
+  onLogout: () => void
 }
 
 const TYPES = ['Studio','1BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Penthouse','Villa','Townhouse','Plot'];
@@ -50,7 +53,7 @@ function DualSlider({ vMin, vMax, onChange }: { vMin: number; vMax: number; onCh
   );
 }
 
-export default function Home({ user, onLogout, onViewProject, onGoAdmin, onGoProfile }: Props) {
+export default function Home({ user, onViewProject, ...nav }: Props) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,15 +110,9 @@ export default function Home({ user, onLogout, onViewProject, onGoAdmin, onGoPro
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          {onGoAdmin && (
-            <button onClick={onGoAdmin} style={{ background: 'rgba(147,51,234,0.2)', border: '1px solid rgba(147,51,234,0.4)', borderRadius: 7, padding: '6px 14px', color: '#C084FC', cursor: 'pointer', fontSize: 13 }}>⚙️ Admin Panel</button>
-          )}
-          <div onClick={onGoProfile} title="My Profile & WhatsApp Setup" style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-            {user.name?.charAt(0).toUpperCase()}
-          </div>
-          <span style={{ fontSize: 13, color: '#A5B4FC' }}>{user.name}</span>
-          <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 6, padding: '6px 14px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Logout</button>
+        <div style={{ marginLeft: 'auto' }}>
+          {/* Already home, so no Home entry in the menu here. */}
+          <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoHome: undefined })} />
         </div>
         </nav>
       }

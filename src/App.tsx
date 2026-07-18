@@ -7,7 +7,7 @@ import Profile from './pages/Profile'
 import ResetPassword from './pages/ResetPassword'
 import { supabase, saveSession, getSession, clearSession } from './lib/supabase'
 
-type View = 'home' | 'project' | 'admin' | 'profile'
+type View = 'home' | 'project' | 'admin' | 'profile' | 'templates'
 
 // ─── Remembered view ────────────────────────────────────────────────────────
 // There's no router, so `view` lives only in React state and a refresh would
@@ -16,7 +16,7 @@ type View = 'home' | 'project' | 'admin' | 'profile'
 // Remember where you are so a refresh keeps you there. sessionStorage rather
 // than localStorage so two tabs can sit on different screens independently.
 const VIEW_KEY = 'pd_view'
-const VIEWS: View[] = ['home', 'project', 'admin', 'profile']
+const VIEWS: View[] = ['home', 'project', 'admin', 'profile', 'templates']
 
 function readSavedView(): { view: View; projectId: string | null } | null {
   try {
@@ -208,37 +208,44 @@ function App() {
     />
   )
 
+  // Destinations shared by every page's account menu.
+  const nav = {
+    onGoHome: () => setView('home'),
+    onGoAdmin: user.role === 'admin' ? () => setView('admin') : undefined,
+    onGoProfile: () => setView('profile'),
+    onGoTemplates: () => setView('templates'),
+    onLogout: doLogout,
+  }
+
   if (view === 'project' && projectId) {
     return <ProjectPage
       projectId={projectId}
       user={user}
       onBack={() => setView('home')}
-      onLogout={doLogout}
+      {...nav}
     />
   }
 
   if (view === 'admin' && user.role === 'admin') {
     return <AdminPanel
       user={user}
-      onGoHome={() => setView('home')}
-      onLogout={doLogout}
+      {...nav}
     />
   }
 
-  if (view === 'profile') {
+  if (view === 'profile' || view === 'templates') {
     return <Profile
       user={user}
+      section={view === 'templates' ? 'templates' : 'profile'}
       onBack={() => setView('home')}
-      onLogout={doLogout}
+      {...nav}
     />
   }
 
   return <Home
     user={user}
     onViewProject={(id: string) => { setProjectId(id); setView('project') }}
-    onGoAdmin={user.role === 'admin' ? () => setView('admin') : undefined}
-    onGoProfile={() => setView('profile')}
-    onLogout={doLogout}
+    {...nav}
   />
 }
 

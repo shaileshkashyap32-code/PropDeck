@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase, getSession } from '../lib/supabase';
 import AppShell from '../components/AppShell';
+import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 
 interface Salesperson {
   id: string;
@@ -20,13 +21,19 @@ interface Project {
 
 interface ProfileProps {
   user: Salesperson;
+  /** Which of the two account screens to show — they share this component. */
+  section: 'profile' | 'templates';
   onBack: () => void;
+  onGoHome: () => void;
+  onGoAdmin?: () => void;
+  onGoProfile: () => void;
+  onGoTemplates: () => void;
   onLogout: () => void;
 }
 
 type SaveStatus = 'saved' | 'error' | null;
 
-export default function Profile({ user, onBack, onLogout }: ProfileProps) {
+export default function Profile({ user, section, onBack, ...nav }: ProfileProps) {
   const [projects, setProjects]     = useState<Project[]>([]);
   const [templates, setTemplates]   = useState<Record<string, string>>({});
   const [saving, setSaving]         = useState<Record<string, boolean>>({});
@@ -77,35 +84,36 @@ export default function Profile({ user, onBack, onLogout }: ProfileProps) {
     return `₹${(price / 100_000).toFixed(0)}L`;
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #0F0C29, #1E1B4B)' }}>
-        <p className="text-indigo-300 text-sm animate-pulse">Loading profile…</p>
-      </div>
-    );
-  }
-
-  return (
-    <AppShell
-      topBar={
-        <nav className="h-14 flex items-center justify-between px-4"
-          style={{ background: 'rgba(15,12,41,0.85)', borderBottom: '1px solid rgba(79,70,229,0.2)', flexShrink: 0 }}>
+  const topBar = (
+    <nav className="h-14 flex items-center justify-between px-4"
+      style={{ background: 'rgba(15,12,41,0.85)', borderBottom: '1px solid rgba(79,70,229,0.2)', flexShrink: 0 }}>
+      <div className="flex items-center gap-3">
         <button onClick={onBack}
           className="flex items-center gap-1.5 text-sm text-indigo-300 hover:text-white transition-colors">
           ← Back
         </button>
-        <span className="text-white font-semibold text-sm">My Profile</span>
-        <button onClick={onLogout}
-          className="text-xs text-red-400 hover:text-red-300 transition-colors">
-          Logout
-        </button>
-        </nav>
-      }
-    >
+        <span className="text-white font-semibold text-sm">
+          {section === 'templates' ? 'WhatsApp Templates' : 'My Profile'}
+        </span>
+      </div>
+      <UserMenu user={user} groups={buildAccountMenu({ isAdmin: user.role === 'admin', ...nav })} />
+    </nav>
+  );
+
+  if (loading) {
+    return (
+      <AppShell topBar={topBar}>
+        <p className="text-indigo-300 text-sm animate-pulse text-center pt-20">Loading…</p>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell topBar={topBar}>
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
 
         {/* User Card */}
+        {section === 'profile' && (
         <div className="rounded-2xl p-5 flex items-center gap-4"
           style={{ background: 'rgba(30,27,75,0.8)', border: '1px solid rgba(79,70,229,0.2)' }}>
           <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
@@ -124,8 +132,20 @@ export default function Profile({ user, onBack, onLogout }: ProfileProps) {
             </span>
           </div>
         </div>
+        )}
+
+        {/* Editing your name / photo isn't built yet — see the note in the
+            handover rather than pretending the fields exist. */}
+        {section === 'profile' && (
+          <div className="rounded-2xl p-5 text-sm"
+            style={{ background: 'rgba(30,27,75,0.5)', border: '1px dashed rgba(79,70,229,0.3)', color: '#94A3B8' }}>
+            Editing your photo and details is coming soon. For now, ask an admin to update
+            your name or mobile number from the Team screen.
+          </div>
+        )}
 
         {/* WhatsApp Templates */}
+        {section === 'templates' && (
         <div>
           <h3 className="text-white font-semibold text-base mb-1">WhatsApp Message Templates</h3>
           <p className="text-sm mb-4" style={{ color: '#94A3B8' }}>
@@ -190,6 +210,7 @@ export default function Profile({ user, onBack, onLogout }: ProfileProps) {
             })}
           </div>
         </div>
+        )}
 
       </div>
     </AppShell>

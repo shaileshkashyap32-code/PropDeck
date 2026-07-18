@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import AppShell from '../components/AppShell';
+import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 
 interface Landmark {
   name: string;
@@ -43,6 +44,10 @@ interface Props {
   projectId: string;
   user: any;
   onBack: () => void;
+  onGoHome: () => void;
+  onGoAdmin?: () => void;
+  onGoProfile: () => void;
+  onGoTemplates: () => void;
   onLogout: () => void;
 }
 
@@ -75,7 +80,7 @@ function stripBold(text: string) {
   return text.replace(/\*\*/g, '');
 }
 
-export default function ProjectPage({ projectId, user, onBack, onLogout }: Props) {
+export default function ProjectPage({ projectId, user, onBack, ...menuNav }: Props) {
   const [project, setProject] = useState<Project | null>(null);
   const [similar, setSimilar] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,8 +164,7 @@ export default function ProjectPage({ projectId, user, onBack, onLogout }: Props
       </div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <button onClick={onBack} style={{ background: 'rgba(79,70,229,0.2)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 7, padding: '6px 16px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>← Back</button>
-        <span style={{ fontSize: 13, color: '#A5B4FC' }}>{user.name}</span>
-        <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 6, padding: '6px 14px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Logout</button>
+        <UserMenu user={user} groups={buildAccountMenu({ ...menuNav, isAdmin: user.role === 'admin' })} />
       </div>
     </nav>
   );
