@@ -187,8 +187,8 @@ function App() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg,#0F0C29,#1E1B4B)',
-          color: '#A5B4FC',
+          background: 'linear-gradient(135deg,var(--bg-from),var(--bg-to))',
+          color: 'var(--text-muted)',
           fontSize: 15,
         }}
       >

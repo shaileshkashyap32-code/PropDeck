@@ -18,8 +18,8 @@ const SHELL: CSSProperties = {
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
-  background: 'linear-gradient(135deg,#0F0C29,#1E1B4B)',
-  color: 'white',
+  background: 'linear-gradient(135deg,var(--bg-from),var(--bg-to))',
+  color: 'var(--text)',
 }
 
 // The whole point of this component: pin the top bar and sidebar and let only the

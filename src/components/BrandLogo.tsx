@@ -19,7 +19,7 @@ interface Props {
 export default function BrandLogo({ onClick, zoneWidth, compact, badge }: Props) {
   const inner = (
     <>
-      <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+      <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#FFFFFF', flexShrink: 0 }}>
         P
       </div>
       {!compact && (
@@ -45,7 +45,7 @@ export default function BrandLogo({ onClick, zoneWidth, compact, badge }: Props)
         height: '100%',
         boxSizing: 'border-box',
         ...(zoneWidth
-          ? { width: zoneWidth, paddingLeft: 24, borderRight: '1px solid rgba(79,70,229,0.2)' }
+          ? { width: zoneWidth, paddingLeft: 24, borderRight: '1px solid var(--border)' }
           : {}),
       }}
     >

@@ -2,17 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Theme tokens ──────────────────────────────────────────────────────────
+   Dark is the default and its values are exactly what the app used before
+   theming, so nothing shifts for anyone who never touches the toggle.
+
+   Only surfaces and text are tokenised. The low-alpha indigo tints used for
+   borders and fills (rgba(79,70,229,…)) read correctly over both a near-black
+   and a near-white background, so they stay as literals.
+
+   Brand gradients (#4F46E5 → #9333EA) are fixed in both themes, and text
+   sitting on them stays #FFFFFF rather than following --text.               */
+:root, :root[data-theme='dark'] {
+  --bg-from: #0F0C29;
+  --bg-to: #1E1B4B;
+  --bg-bar: rgba(30,27,75,0.95);
+  --bg-sidebar: rgba(10,8,30,0.8);
+  --bg-card: rgba(30,27,75,0.8);
+  --bg-raised: #1E1B4B;
+  --bg-inset: rgba(15,12,41,0.55);
+  --border: rgba(79,70,229,0.2);
+  --border-strong: rgba(79,70,229,0.3);
+  --text: #FFFFFF;
+  --text-bright: #E2E8F0;
+  --text-muted: #A5B4FC;
+  --text-dim: #94A3B8;
+  --text-faint: #64748B;
+  --text-fainter: #475569;
+  --shadow: rgba(0,0,0,0.5);
+  --scroll-track: #1E1B4B;
+  --scroll-thumb: #4F46E5;
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg-from: #F8FAFC;
+  --bg-to: #EEF2FF;
+  --bg-bar: rgba(255,255,255,0.95);
+  --bg-sidebar: rgba(241,245,249,0.9);
+  --bg-card: #FFFFFF;
+  --bg-raised: #FFFFFF;
+  --bg-inset: rgba(241,245,249,0.9);
+  --border: rgba(79,70,229,0.18);
+  --border-strong: rgba(79,70,229,0.35);
+  --text: #0F172A;
+  --text-bright: #1E293B;
+  --text-muted: #4338CA;
+  --text-dim: #475569;
+  --text-faint: #64748B;
+  --text-fainter: #94A3B8;
+  --shadow: rgba(15,23,42,0.18);
+  --scroll-track: #E2E8F0;
+  --scroll-thumb: #818CF8;
+  color-scheme: light;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background-color: #0F0C29;
-  color: white;
+  background-color: var(--bg-from);
+  color: var(--text);
   font-family: 'Inter', system-ui, sans-serif;
 }
 
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #1E1B4B; }
-::-webkit-scrollbar-thumb { background: #4F46E5; border-radius: 3px; }
+::-webkit-scrollbar-track { background: var(--scroll-track); }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 3px; }
 
 input, textarea, select {
   outline: none;
@@ -21,3 +75,6 @@ input, textarea, select {
 input:focus, textarea:focus, select:focus {
   border-color: #4F46E5 !important;
 }
+
+/* Native dropdown options can't inherit inline styles from the trigger. */
+option { background: var(--bg-raised); color: var(--text); }

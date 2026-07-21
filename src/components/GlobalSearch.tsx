@@ -133,10 +133,10 @@ export default function GlobalSearch({ onSelectProject, onQueryChange, value, pr
           style={{
             width: '100%',
             background: 'rgba(79,70,229,0.15)',
-            border: '1px solid rgba(79,70,229,0.3)',
+            border: '1px solid var(--border-strong)',
             borderRadius: 8,
             padding: '8px 32px 8px 32px',
-            color: 'white',
+            color: 'var(--text)',
             fontSize: 13,
             outline: 'none',
             boxSizing: 'border-box',
@@ -163,16 +163,16 @@ export default function GlobalSearch({ onSelectProject, onQueryChange, value, pr
             right: 0,
             maxHeight: 320,
             overflowY: 'auto',
-            background: '#1E1B4B',
-            border: '1px solid rgba(129,140,248,0.22)',
+            background: 'var(--bg-raised)',
+            border: '1px solid var(--border-strong)',
             borderRadius: 10,
-            boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+            boxShadow: '0 16px 40px var(--shadow)',
             padding: 6,
             zIndex: 90,
           }}
         >
           {hits.length === 0 ? (
-            <div style={{ padding: '10px 12px', color: '#64748B', fontSize: 13 }}>
+            <div style={{ padding: '10px 12px', color: 'var(--text-faint)', fontSize: 13 }}>
               No projects match “{q.trim()}”
             </div>
           ) : (
@@ -194,7 +194,7 @@ export default function GlobalSearch({ onSelectProject, onQueryChange, value, pr
                   cursor: 'pointer',
                 }}
               >
-                <div style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>{hit.name}</div>
+                <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{hit.name}</div>
                 <div style={{ color: '#818CF8', fontSize: 11, marginTop: 2 }}>
                   {hit.developer} · 📍{hit.location} · {fmt(hit.price_min)}–{fmt(hit.price_max)}
                 </div>

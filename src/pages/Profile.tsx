@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase, getSession } from '../lib/supabase';
 import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
+import ThemeToggle from '../components/ThemeToggle';
 
 interface Salesperson {
   id: string;
@@ -86,24 +87,27 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
 
   const topBar = (
     <nav className="h-14 flex items-center justify-between px-4"
-      style={{ background: 'rgba(15,12,41,0.85)', borderBottom: '1px solid rgba(79,70,229,0.2)', flexShrink: 0 }}>
+      style={{ background: 'var(--bg-bar)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
       <div className="flex items-center gap-3">
         <button onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-indigo-300 hover:text-white transition-colors">
+          className="flex items-center gap-1.5 text-sm text-[color:var(--text-muted)] hover:text-[color:var(--text)] transition-colors">
           ← Back
         </button>
-        <span className="text-white font-semibold text-sm">
+        <span className="text-[color:var(--text)] font-semibold text-sm">
           {section === 'templates' ? 'WhatsApp Templates' : 'My Profile'}
         </span>
       </div>
-      <UserMenu user={user} groups={buildAccountMenu({ isAdmin: user.role === 'admin', ...nav })} />
+      <div className="flex items-center gap-3">
+        <ThemeToggle />
+        <UserMenu user={user} groups={buildAccountMenu({ isAdmin: user.role === 'admin', ...nav })} />
+      </div>
     </nav>
   );
 
   if (loading) {
     return (
       <AppShell topBar={topBar}>
-        <p className="text-indigo-300 text-sm animate-pulse text-center pt-20">Loading…</p>
+        <p className="text-[color:var(--text-muted)] text-sm animate-pulse text-center pt-20">Loading…</p>
       </AppShell>
     );
   }
@@ -115,18 +119,19 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
         {/* User Card */}
         {section === 'profile' && (
         <div className="rounded-2xl p-5 flex items-center gap-4"
-          style={{ background: 'rgba(30,27,75,0.8)', border: '1px solid rgba(79,70,229,0.2)' }}>
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          {/* On the brand gradient — stays white in both themes. */}
           <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #4F46E5, #9333EA)' }}>
             {user.name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h2 className="text-white font-bold text-lg leading-tight">{user.name}</h2>
-            <p className="text-indigo-300 text-sm">{user.mobile_number}</p>
+            <h2 className="text-[color:var(--text)] font-bold text-lg leading-tight">{user.name}</h2>
+            <p className="text-[color:var(--text-muted)] text-sm">{user.mobile_number}</p>
             <span className="inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium"
               style={{
-                background: user.role === 'admin' ? 'rgba(79,70,229,0.25)' : 'rgba(16,185,129,0.2)',
-                color: user.role === 'admin' ? '#A5B4FC' : '#10B981',
+                background: user.role === 'admin' ? 'var(--border)' : 'rgba(16,185,129,0.2)',
+                color: user.role === 'admin' ? 'var(--text-muted)' : '#10B981',
               }}>
               {user.role === 'admin' ? '⚙ Admin' : '👤 Salesperson'}
             </span>
@@ -138,7 +143,7 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
             handover rather than pretending the fields exist. */}
         {section === 'profile' && (
           <div className="rounded-2xl p-5 text-sm"
-            style={{ background: 'rgba(30,27,75,0.5)', border: '1px dashed rgba(79,70,229,0.3)', color: '#94A3B8' }}>
+            style={{ background: 'var(--bg-card)', border: '1px dashed var(--border-strong)', color: 'var(--text-dim)' }}>
             Editing your photo and details is coming soon. For now, ask an admin to update
             your name or mobile number from the Team screen.
           </div>
@@ -147,10 +152,10 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
         {/* WhatsApp Templates */}
         {section === 'templates' && (
         <div>
-          <h3 className="text-white font-semibold text-base mb-1">WhatsApp Message Templates</h3>
-          <p className="text-sm mb-4" style={{ color: '#94A3B8' }}>
+          <h3 className="text-[color:var(--text)] font-semibold text-base mb-1">WhatsApp Message Templates</h3>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-dim)' }}>
             Set a personalised message per project. It auto-fills when you tap{' '}
-            <span className="text-indigo-300">Send to Client</span> on the project page.
+            <span className="text-[color:var(--text-muted)]">Send to Client</span> on the project page.
           </p>
 
           <div className="space-y-3">
@@ -162,13 +167,13 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
 
               return (
                 <div key={project.id} className="rounded-xl p-4"
-                  style={{ background: 'rgba(30,27,75,0.75)', border: '1px solid rgba(79,70,229,0.18)' }}>
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
 
                   {/* Project header */}
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0">
-                      <p className="text-white font-medium text-sm truncate">{project.name}</p>
-                      <p className="text-xs mt-0.5" style={{ color: '#A5B4FC' }}>
+                      <p className="text-[color:var(--text)] font-medium text-sm truncate">{project.name}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                         {project.developer} · {project.location} · {formatPrice(project.price_min)}–{formatPrice(project.price_max)}
                       </p>
                     </div>
@@ -187,8 +192,8 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
                     onChange={e => setTemplates(prev => ({ ...prev, [project.id]: e.target.value }))}
                     placeholder={`Hi [Name], sharing details on ${project.name} by ${project.developer}. Starts at ${formatPrice(project.price_min)} in ${project.location}. Want to know more?`}
                     rows={3}
-                    className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
-                    style={{ background: 'rgba(15,12,41,0.55)', border: '1px solid rgba(79,70,229,0.22)' }}
+                    className="w-full rounded-lg px-3 py-2 text-sm text-[color:var(--text)] placeholder-[color:var(--text-fainter)] resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                    style={{ background: 'var(--bg-inset)', border: '1px solid rgba(79,70,229,0.22)' }}
                   />
 
                   {/* Save row */}
@@ -200,7 +205,7 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
                     <button
                       onClick={() => saveTemplate(project.id)}
                       disabled={isSaving || !currentMsg.trim()}
-                      className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-4 py-1.5 rounded-lg text-xs font-semibold text-[color:var(--text)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                       style={{ background: status === 'saved' ? '#10B981' : 'linear-gradient(135deg, #4F46E5, #9333EA)' }}>
                       {isSaving ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save Message'}
                     </button>

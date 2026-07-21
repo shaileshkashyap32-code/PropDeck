@@ -33,10 +33,10 @@ const PANEL: CSSProperties = {
   top: 'calc(100% + 8px)',
   right: 0,
   minWidth: 232,
-  background: '#1E1B4B',
-  border: '1px solid rgba(129,140,248,0.22)',
+  background: 'var(--bg-raised)',
+  border: '1px solid var(--border-strong)',
   borderRadius: 12,
-  boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+  boxShadow: '0 16px 40px var(--shadow)',
   padding: 6,
   zIndex: 100,
 }
@@ -106,12 +106,12 @@ export default function UserMenu({ user, groups }: Props) {
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          background: open ? 'rgba(79,70,229,0.25)' : 'transparent',
+          background: open ? 'var(--border)' : 'transparent',
           border: '1px solid rgba(165,180,252,0.25)',
           borderRadius: 999,
           padding: '4px 10px 4px 4px',
           cursor: 'pointer',
-          color: '#A5B4FC',
+          color: 'var(--text-muted)',
           fontSize: 13,
         }}
       >
@@ -126,7 +126,7 @@ export default function UserMenu({ user, groups }: Props) {
             justifyContent: 'center',
             fontWeight: 700,
             fontSize: 12,
-            color: 'white',
+            color: '#FFFFFF',
             flexShrink: 0,
           }}
         >
@@ -142,7 +142,7 @@ export default function UserMenu({ user, groups }: Props) {
         <div role="menu" style={PANEL}>
           {/* Who you're signed in as — the menu is otherwise all verbs. */}
           <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid rgba(129,140,248,0.14)', marginBottom: 6 }}>
-            <div style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>{user.name}</div>
+            <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{user.name}</div>
             <div style={{ color: '#818CF8', fontSize: 11, marginTop: 2 }}>
               {user.role === 'admin' ? '⚙ Admin' : '👤 Salesperson'}
             </div>
@@ -190,7 +190,7 @@ export default function UserMenu({ user, groups }: Props) {
                         style={{
                           fontSize: 9,
                           background: 'rgba(148,163,184,0.15)',
-                          color: '#64748B',
+                          color: 'var(--text-faint)',
                           padding: '2px 6px',
                           borderRadius: 999,
                         }}
@@ -199,7 +199,7 @@ export default function UserMenu({ user, groups }: Props) {
                       </span>
                     )}
                     {item.hint && !item.soon && (
-                      <span style={{ fontSize: 11, color: '#64748B' }}>{item.hint}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{item.hint}</span>
                     )}
                   </button>
                 )

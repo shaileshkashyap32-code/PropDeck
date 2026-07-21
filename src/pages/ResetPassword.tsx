@@ -59,7 +59,7 @@ export default function ResetPassword({ token, onDone }: Props) {
         alignItems: 'center',
         justifyContent: 'center',
         background:
-          'linear-gradient(135deg, #0F0C29 0%, #1E1B4B 50%, #0F0C29 100%)',
+          'linear-gradient(135deg, var(--bg-from) 0%, var(--bg-to) 50%, var(--bg-from) 100%)',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -99,9 +99,9 @@ export default function ResetPassword({ token, onDone }: Props) {
           margin: '0 16px',
           borderRadius: 20,
           padding: 40,
-          background: '#1E1B4B',
+          background: 'var(--bg-raised)',
           border: '1.5px solid #4338CA',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.5)',
+          boxShadow: '0 25px 60px var(--shadow)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -115,15 +115,15 @@ export default function ResetPassword({ token, onDone }: Props) {
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 700,
-              color: 'white',
+              color: '#FFFFFF',
               fontSize: 18,
             }}
           >
             P
           </div>
-          <span style={{ color: 'white', fontWeight: 700, fontSize: 20 }}>PropDeck</span>
+          <span style={{ color: 'var(--text)', fontWeight: 700, fontSize: 20 }}>PropDeck</span>
         </div>
-        <p style={{ color: '#A5B4FC', fontSize: 13, marginBottom: 28 }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 28 }}>
           Sales Enablement for Real Estate
         </p>
         {children}
@@ -134,10 +134,10 @@ export default function ResetPassword({ token, onDone }: Props) {
   if (done) {
     return cardWrapper(
       <div>
-        <h1 style={{ color: 'white', fontSize: 22, fontWeight: 700, marginBottom: 10 }}>
+        <h1 style={{ color: 'var(--text)', fontSize: 22, fontWeight: 700, marginBottom: 10 }}>
           Password updated ✓
         </h1>
-        <p style={{ color: '#A5B4FC', fontSize: 14, marginBottom: 24 }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 24 }}>
           You can now log in with your new password.
         </p>
         <button
@@ -148,7 +148,7 @@ export default function ResetPassword({ token, onDone }: Props) {
             borderRadius: 12,
             border: 'none',
             background: 'linear-gradient(135deg,#4F46E5,#9333EA)',
-            color: 'white',
+            color: '#FFFFFF',
             fontWeight: 600,
             fontSize: 15,
             cursor: 'pointer',
@@ -162,7 +162,7 @@ export default function ResetPassword({ token, onDone }: Props) {
 
   return cardWrapper(
     <div>
-      <h1 style={{ color: 'white', fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
+      <h1 style={{ color: 'var(--text)', fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
         Set a new password
       </h1>
       <p style={{ color: '#818CF8', fontSize: 13, marginBottom: 28 }}>
@@ -172,7 +172,7 @@ export default function ResetPassword({ token, onDone }: Props) {
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 16 }}>
           <label
-            style={{ display: 'block', color: '#A5B4FC', fontSize: 12, fontWeight: 500, marginBottom: 8 }}
+            style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12, fontWeight: 500, marginBottom: 8 }}
           >
             New Password
           </label>
@@ -184,7 +184,7 @@ export default function ResetPassword({ token, onDone }: Props) {
               padding: '0 14px',
               height: 48,
               borderRadius: 12,
-              background: '#0F0D2E',
+              background: 'var(--bg-inset)',
               border: '1.5px solid #3730A3',
             }}
           >
@@ -195,7 +195,7 @@ export default function ResetPassword({ token, onDone }: Props) {
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="At least 6 characters"
               required
-              style={{ background: 'transparent', border: 'none', outline: 'none', color: 'white', fontSize: 14, flex: 1 }}
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 14, flex: 1 }}
             />
             <button
               type="button"
@@ -209,7 +209,7 @@ export default function ResetPassword({ token, onDone }: Props) {
 
         <div style={{ marginBottom: 22 }}>
           <label
-            style={{ display: 'block', color: '#A5B4FC', fontSize: 12, fontWeight: 500, marginBottom: 8 }}
+            style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12, fontWeight: 500, marginBottom: 8 }}
           >
             Confirm Password
           </label>
@@ -221,7 +221,7 @@ export default function ResetPassword({ token, onDone }: Props) {
               padding: '0 14px',
               height: 48,
               borderRadius: 12,
-              background: '#0F0D2E',
+              background: 'var(--bg-inset)',
               border: '1.5px solid #3730A3',
             }}
           >
@@ -232,7 +232,7 @@ export default function ResetPassword({ token, onDone }: Props) {
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Re-enter password"
               required
-              style={{ background: 'transparent', border: 'none', outline: 'none', color: 'white', fontSize: 14, flex: 1 }}
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 14, flex: 1 }}
             />
           </div>
         </div>
@@ -262,7 +262,7 @@ export default function ResetPassword({ token, onDone }: Props) {
             borderRadius: 12,
             border: 'none',
             background: 'linear-gradient(135deg,#4F46E5,#9333EA)',
-            color: 'white',
+            color: '#FFFFFF',
             fontWeight: 600,
             fontSize: 15,
             cursor: saving ? 'default' : 'pointer',

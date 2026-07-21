@@ -4,6 +4,7 @@ import AppShell from '../components/AppShell'
 import UserMenu, { buildAccountMenu } from '../components/UserMenu'
 import BrandLogo from '../components/BrandLogo'
 import GlobalSearch from '../components/GlobalSearch'
+import ThemeToggle from '../components/ThemeToggle'
 
 interface Props {
   user: any
@@ -61,12 +62,12 @@ const UNIT_TYPES = ['Studio','1BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Pent
 const LM_TYPES = ['Metro','School','Hospital','IT Park','Mall','Airport','Highway','Other']
 
 const inp: React.CSSProperties = {
-  width: '100%', background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(79,70,229,0.3)',
-  borderRadius: 8, padding: '9px 12px', color: 'white', fontSize: 14, outline: 'none', boxSizing: 'border-box'
+  width: '100%', background: 'rgba(79,70,229,0.12)', border: '1px solid var(--border-strong)',
+  borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 14, outline: 'none', boxSizing: 'border-box'
 }
-const lbl: React.CSSProperties = { fontSize: 12, color: '#94A3B8', marginBottom: 6, display: 'block' }
+const lbl: React.CSSProperties = { fontSize: 12, color: 'var(--text-dim)', marginBottom: 6, display: 'block' }
 const card: React.CSSProperties = {
-  background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)',
+  background: 'rgba(79,70,229,0.08)', border: '1px solid var(--border)',
   borderRadius: 12, padding: 20, marginBottom: 20
 }
 
@@ -660,31 +661,32 @@ Write ONLY the pitch script. No labels or preamble.`
     <AppShell
       mainStyle={{ padding: isMobile ? 16 : 24 }}
       topBar={
-        <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+        <nav style={{ background: 'var(--bg-bar)', borderBottom: '1px solid var(--border)', padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
         <BrandLogo onClick={nav.onGoHome} compact={isMobile} badge="Admin" />
         {/* The panel is desktop-first; on mobile the bar has no room for search. */}
         {!isMobile && <GlobalSearch onSelectProject={onViewProject} />}
-        <div style={{ marginLeft: 'auto' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <ThemeToggle />
           {/* Already in the panel, so the menu drops its Admin Panel entry here. */}
           <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoAdmin: undefined })} />
         </div>
         </nav>
       }
       subBar={isMobile && (
-        <div style={{ display: 'flex', background: 'rgba(10,8,30,0.9)', borderBottom: '1px solid rgba(79,70,229,0.2)', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
           {NAV_ITEMS.map(([k, l]) => (
             <button key={k} onClick={() => { setSection(k as any); if (k !== 'add') resetForm() }}
-              style={{ flexShrink: 0, padding: '12px 10px', border: 'none', fontSize: 11, cursor: 'pointer', background: 'transparent', color: section === k ? '#A5B4FC' : '#64748B', borderBottom: section === k ? '2px solid #6366F1' : '2px solid transparent', fontWeight: section === k ? 600 : 400 }}>
+              style={{ flexShrink: 0, padding: '12px 10px', border: 'none', fontSize: 11, cursor: 'pointer', background: 'transparent', color: section === k ? 'var(--text-muted)' : 'var(--text-faint)', borderBottom: section === k ? '2px solid #6366F1' : '2px solid transparent', fontWeight: section === k ? 600 : 400 }}>
               {l}
             </button>
           ))}
         </div>
       )}
       sidebar={!isMobile && (
-        <aside style={{ width: 220, background: 'rgba(10,8,30,0.8)', borderRight: '1px solid rgba(79,70,229,0.2)', padding: 16, flexShrink: 0 }}>
+        <aside style={{ width: 220, background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border)', padding: 16, flexShrink: 0 }}>
             {NAV_ITEMS.map(([k, l]) => (
               <button key={k} onClick={() => { setSection(k as any); if (k !== 'add') resetForm() }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', marginBottom: 6, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, background: section === k ? 'rgba(79,70,229,0.35)' : 'transparent', color: section === k ? '#A5B4FC' : '#64748B' }}>
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', marginBottom: 6, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, background: section === k ? 'rgba(79,70,229,0.35)' : 'transparent', color: section === k ? 'var(--text-muted)' : 'var(--text-faint)' }}>
                 {l}
                 {k === 'projects' && <span style={{ float: 'right', background: 'rgba(79,70,229,0.4)', padding: '1px 7px', borderRadius: 10, fontSize: 11 }}>{projects.length}</span>}
                 {k === 'locations' && <span style={{ float: 'right', background: 'rgba(79,70,229,0.4)', padding: '1px 7px', borderRadius: 10, fontSize: 11 }}>{locations.length}</span>}
@@ -704,30 +706,30 @@ Write ONLY the pitch script. No labels or preamble.`
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <h2 style={{ margin: 0, fontSize: isMobile ? 17 : 20 }}>All Projects ({projects.length})</h2>
-                <button onClick={() => { resetForm(); setSection('add') }} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '9px 14px', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>+ Add New</button>
+                <button onClick={() => { resetForm(); setSection('add') }} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '9px 14px', color: '#FFFFFF', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>+ Add New</button>
               </div>
               {projects.length === 0
-                ? <div style={{ textAlign: 'center', padding: 60, color: '#64748B' }}>No projects yet.</div>
+                ? <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-faint)' }}>No projects yet.</div>
                 : isMobile
                   ? <div>{projects.map(p => (
-                      <div key={p.id} style={{ background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                      <div key={p.id} style={{ background: 'rgba(79,70,229,0.08)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
                         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{p.name}</div>
-                        <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 8 }}>{p.developer} · {p.location}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>{p.developer} · {p.location}</div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: p.status === 'Ready to Move' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: p.status === 'Ready to Move' ? '#10B981' : '#F59E0B' }}>{p.status === 'Ready to Move' ? 'Ready' : 'UC'}</span>
                           <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={() => startEdit(p)} style={{ background: 'rgba(79,70,229,0.3)', border: 'none', borderRadius: 6, padding: '5px 12px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Edit</button>
+                            <button onClick={() => startEdit(p)} style={{ background: 'var(--border-strong)', border: 'none', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>Edit</button>
                             <button onClick={() => handleDelete(p.id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '5px 12px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>Del</button>
                           </div>
                         </div>
                       </div>
                     ))}</div>
-                  : <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(79,70,229,0.2)' }}>
+                  : <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                         <thead>
-                          <tr style={{ background: 'rgba(79,70,229,0.2)' }}>
+                          <tr style={{ background: 'var(--border)' }}>
                             {['Project','Developer','Location','Status','Price Range','Actions'].map(h => (
-                              <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: '#A5B4FC', fontWeight: 600 }}>{h}</th>
+                              <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -735,15 +737,15 @@ Write ONLY the pitch script. No labels or preamble.`
                           {projects.map(p => (
                             <tr key={p.id} style={{ borderTop: '1px solid rgba(79,70,229,0.12)' }}>
                               <td style={{ padding: '13px 16px', fontWeight: 600 }}>{p.name}</td>
-                              <td style={{ padding: '13px 16px', color: '#94A3B8' }}>{p.developer}</td>
-                              <td style={{ padding: '13px 16px', color: '#94A3B8' }}>{p.location}</td>
+                              <td style={{ padding: '13px 16px', color: 'var(--text-dim)' }}>{p.developer}</td>
+                              <td style={{ padding: '13px 16px', color: 'var(--text-dim)' }}>{p.location}</td>
                               <td style={{ padding: '13px 16px' }}>
                                 <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: p.status === 'Ready to Move' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: p.status === 'Ready to Move' ? '#10B981' : '#F59E0B' }}>{p.status}</span>
                               </td>
-                              <td style={{ padding: '13px 16px', color: '#A5B4FC' }}>{fmt(p.price_min)} – {fmt(p.price_max)}</td>
+                              <td style={{ padding: '13px 16px', color: 'var(--text-muted)' }}>{fmt(p.price_min)} – {fmt(p.price_max)}</td>
                               <td style={{ padding: '13px 16px' }}>
                                 <div style={{ display: 'flex', gap: 8 }}>
-                                  <button onClick={() => startEdit(p)} style={{ background: 'rgba(79,70,229,0.3)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Edit</button>
+                                  <button onClick={() => startEdit(p)} style={{ background: 'var(--border-strong)', border: 'none', borderRadius: 6, padding: '5px 14px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>Edit</button>
                                   <button onClick={() => handleDelete(p.id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>Delete</button>
                                 </div>
                               </td>
@@ -764,7 +766,7 @@ Write ONLY the pitch script. No labels or preamble.`
               {/* 0️⃣ QUICK FILL */}
               <div style={{ ...card, borderColor: 'rgba(139,92,246,0.5)', background: 'rgba(88,28,219,0.1)' }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#C084FC', marginBottom: 4 }}>🪄 Quick Fill with AI</div>
-                <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12 }}>
                   Paste WhatsApp forwards, website copy, or any project text — AI extracts and fills all fields below automatically.
                 </div>
                 <textarea
@@ -778,7 +780,7 @@ Write ONLY the pitch script. No labels or preamble.`
                   <button
                     onClick={extractWithAI}
                     disabled={generatingFill || !quickFillText.trim()}
-                    style={{ background: 'linear-gradient(135deg,#7C3AED,#9333EA)', border: 'none', borderRadius: 8, padding: '10px 22px', color: 'white', fontWeight: 700, cursor: generatingFill || !quickFillText.trim() ? 'default' : 'pointer', fontSize: 14, opacity: !quickFillText.trim() ? 0.5 : 1 }}>
+                    style={{ background: 'linear-gradient(135deg,#7C3AED,#9333EA)', border: 'none', borderRadius: 8, padding: '10px 22px', color: '#FFFFFF', fontWeight: 700, cursor: generatingFill || !quickFillText.trim() ? 'default' : 'pointer', fontSize: 14, opacity: !quickFillText.trim() ? 0.5 : 1 }}>
                     {generatingFill ? '⏳ Extracting fields…' : '🪄 Extract & Fill All Fields'}
                   </button>
                 </div>
@@ -786,7 +788,7 @@ Write ONLY the pitch script. No labels or preamble.`
 
               {/* ① BASIC INFO */}
               <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>① Basic Information</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 16 }}>① Basic Information</div>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
                   <div><label style={lbl}>Project Name *</label><input style={inp} value={form.name} onChange={e => setF('name', e.target.value)} placeholder="e.g. Bhartiya Garden Estate Nikoo 7" /></div>
                   <div><label style={lbl}>Developer *</label><input style={inp} value={form.developer} onChange={e => setF('developer', e.target.value)} placeholder="e.g. Bhartiya City Developers" /></div>
@@ -805,8 +807,8 @@ Write ONLY the pitch script. No labels or preamble.`
                   <div>
                     <label style={lbl}>Status *</label>
                     <select style={inp} value={form.status} onChange={e => setF('status', e.target.value)}>
-                      <option style={{ background: '#1E1B4B' }}>Under Construction</option>
-                      <option style={{ background: '#1E1B4B' }}>Ready to Move</option>
+                      <option style={{ background: 'var(--bg-raised)' }}>Under Construction</option>
+                      <option style={{ background: 'var(--bg-raised)' }}>Ready to Move</option>
                     </select>
                   </div>
                   <div><label style={lbl}>Possession Date</label><input style={inp} value={form.possession_date} onChange={e => setF('possession_date', e.target.value)} placeholder="e.g. Dec 2026" /></div>
@@ -816,20 +818,20 @@ Write ONLY the pitch script. No labels or preamble.`
               {/* ② UNIT CONFIGS */}
               <div style={card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC' }}>② Unit Types, Pricing & Super Built-Up Area</div>
-                  <button onClick={addUnit} style={{ background: 'rgba(79,70,229,0.3)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 6, padding: '5px 12px', color: '#A5B4FC', cursor: 'pointer', fontSize: 12 }}>+ Add Unit Type</button>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)' }}>② Unit Types, Pricing & Super Built-Up Area</div>
+                  <button onClick={addUnit} style={{ background: 'var(--border-strong)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12 }}>+ Add Unit Type</button>
                 </div>
-                <div style={{ fontSize: 11, color: '#64748B', marginBottom: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 14 }}>
                   Enter prices in ₹ (e.g. 4900000 = ₹49L · 10000000 = ₹1Cr · 57900000 = ₹5.79Cr) · SBA = Super Built-Up Area in sqft
                 </div>
                 {unitConfigs.map((u, idx) => (
-                  <div key={idx} style={{ background: 'rgba(15,12,41,0.5)', border: '1px solid rgba(79,70,229,0.15)', borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                  <div key={idx} style={{ background: 'var(--bg-inset)', border: '1px solid rgba(79,70,229,0.15)', borderRadius: 8, padding: 12, marginBottom: 10 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1.2fr 1fr 1fr 0.8fr 0.8fr 36px', gap: 8, alignItems: 'end' }}>
                       <div>
                         <label style={lbl}>Unit Type *</label>
                         <select style={inp} value={u.type} onChange={e => updateUnit(idx, 'type', e.target.value)}>
-                          <option value="" style={{ background: '#1E1B4B' }}>Select type</option>
-                          {UNIT_TYPES.map(t => <option key={t} value={t} style={{ background: '#1E1B4B' }}>{t}</option>)}
+                          <option value="" style={{ background: 'var(--bg-raised)' }}>Select type</option>
+                          {UNIT_TYPES.map(t => <option key={t} value={t} style={{ background: 'var(--bg-raised)' }}>{t}</option>)}
                         </select>
                       </div>
                       <div>
@@ -866,7 +868,7 @@ Write ONLY the pitch script. No labels or preamble.`
 
               {/* ③ KEY HIGHLIGHTS */}
               <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>③ Key Highlights</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 16 }}>③ Key Highlights</div>
                 {(['usp1','usp2','usp3','usp4','usp5'] as const).map((k, i) => (
                   <div key={k} style={{ marginBottom: 10 }}>
                     <label style={lbl}>Highlight {i+1}{i === 0 ? ' *' : ''}</label>
@@ -884,7 +886,7 @@ Write ONLY the pitch script. No labels or preamble.`
 
               {/* ④ LANDMARKS */}
               <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>④ Nearby Landmarks</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 16 }}>④ Nearby Landmarks</div>
                 {[1,2,3,4].map(n => (
                   <div key={n} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 0.6fr' : '1fr 0.6fr 0.8fr', gap: 10, marginBottom: 10 }}>
                     <div><label style={lbl}>Landmark {n}</label><input style={inp} value={(form as any)[`lm${n}_name`]} onChange={e => setF(`lm${n}_name` as any, e.target.value)} placeholder="e.g. Kempegowda Airport" /></div>
@@ -892,7 +894,7 @@ Write ONLY the pitch script. No labels or preamble.`
                     {!isMobile && (
                       <div><label style={lbl}>Type</label>
                         <select style={inp} value={(form as any)[`lm${n}_type`]} onChange={e => setF(`lm${n}_type` as any, e.target.value)}>
-                          {LM_TYPES.map(t => <option key={t} style={{ background: '#1E1B4B' }}>{t}</option>)}
+                          {LM_TYPES.map(t => <option key={t} style={{ background: 'var(--bg-raised)' }}>{t}</option>)}
                         </select>
                       </div>
                     )}
@@ -902,7 +904,7 @@ Write ONLY the pitch script. No labels or preamble.`
 
               {/* ⑤ IMAGE & MAP */}
               <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>⑤ Image & Map</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 16 }}>⑤ Image & Map</div>
                 {/* Upload button */}
                 <div style={{ marginBottom: 14 }}>
                   <label style={lbl}>Project Image</label>
@@ -910,39 +912,39 @@ Write ONLY the pitch script. No labels or preamble.`
                     <div>
                       <img src={form.image_url} alt="preview" style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 10, display: 'block' }} />
                       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                        <label style={{ cursor: 'pointer', background: 'rgba(79,70,229,0.2)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 7, padding: '7px 14px', color: '#A5B4FC', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <label style={{ cursor: 'pointer', background: 'var(--border)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 7, padding: '7px 14px', color: 'var(--text-muted)', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           📷 Change Image
                           <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} disabled={uploadingImage} />
                         </label>
                         <button onClick={() => setF('image_url', '')} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 7, padding: '7px 14px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>✕ Remove</button>
-                        {uploadingImage && <span style={{ fontSize: 12, color: '#A5B4FC', alignSelf: 'center' }}>⏳ Uploading...</span>}
+                        {uploadingImage && <span style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>⏳ Uploading...</span>}
                       </div>
                     </div>
                   ) : (
-                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 120, borderRadius: 10, border: '2px dashed rgba(79,70,229,0.35)', cursor: uploadingImage ? 'default' : 'pointer', color: '#64748B', gap: 8, marginBottom: 8, background: 'rgba(79,70,229,0.04)' }}>
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 120, borderRadius: 10, border: '2px dashed rgba(79,70,229,0.35)', cursor: uploadingImage ? 'default' : 'pointer', color: 'var(--text-faint)', gap: 8, marginBottom: 8, background: 'rgba(79,70,229,0.04)' }}>
                       {uploadingImage
-                        ? <span style={{ color: '#A5B4FC', fontSize: 14 }}>Uploading...</span>
+                        ? <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>Uploading...</span>
                         : <><span style={{ fontSize: 36 }}>📷</span><span style={{ fontSize: 13 }}>Click to upload project image</span><span style={{ fontSize: 11 }}>JPG · PNG · WEBP — max 5MB</span></>
                       }
                       <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} disabled={uploadingImage} />
                     </label>
                   )}
-                  <label style={{ fontSize: 11, color: '#475569', display: 'block', marginBottom: 4 }}>Or paste image URL directly</label>
+                  <label style={{ fontSize: 11, color: 'var(--text-fainter)', display: 'block', marginBottom: 4 }}>Or paste image URL directly</label>
                   <input style={{ ...inp, fontSize: 12 }} value={form.image_url} onChange={e => setF('image_url', e.target.value)} placeholder="https://images.unsplash.com/..." />
                 </div>
                 <div>
                   <label style={lbl}>Google Maps Embed URL</label>
                   <input style={inp} value={form.google_maps_url} onChange={e => setF('google_maps_url', e.target.value)} placeholder="https://maps.google.com/..." />
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 5 }}>Get embed URL: Google Maps → Share → Embed a map → copy the src value</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginTop: 5 }}>Get embed URL: Google Maps → Share → Embed a map → copy the src value</div>
                 </div>
               </div>
 
               {/* ⑥ PITCH SCRIPT */}
               <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>⑥ General Pitch Script</span>
                   <button onClick={generatePitchScript} disabled={generatingScript || !form.name}
-                    style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 7, padding: '6px 14px', color: 'white', fontSize: 12, fontWeight: 600, cursor: generatingScript || !form.name ? 'default' : 'pointer', opacity: !form.name ? 0.4 : 1 }}>
+                    style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 7, padding: '6px 14px', color: '#FFFFFF', fontSize: 12, fontWeight: 600, cursor: generatingScript || !form.name ? 'default' : 'pointer', opacity: !form.name ? 0.4 : 1 }}>
                     {generatingScript ? '⏳ Generating…' : '✨ Generate with AI'}
                   </button>
                 </div>
@@ -950,7 +952,7 @@ Write ONLY the pitch script. No labels or preamble.`
                   style={{ ...inp, height: 110, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
                   value={form.pitch_script} onChange={e => setF('pitch_script', e.target.value)}
                   placeholder="Write manually or click ✨ Generate with AI above…" />
-                <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginTop: 4 }}>
                   {form.pitch_script.length} chars · On save, 4 persona pitches (investor/family/first-time/NRI) will be auto-generated separately
                 </div>
               </div>
@@ -964,11 +966,11 @@ Write ONLY the pitch script. No labels or preamble.`
               {/* SUBMIT */}
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingBottom: 40 }}>
                 <button onClick={save} disabled={saving || generatingPersonas}
-                  style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '12px 28px', color: 'white', fontWeight: 700, cursor: saving || generatingPersonas ? 'default' : 'pointer', fontSize: 15, opacity: saving || generatingPersonas ? 0.7 : 1 }}>
+                  style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '12px 28px', color: '#FFFFFF', fontWeight: 700, cursor: saving || generatingPersonas ? 'default' : 'pointer', fontSize: 15, opacity: saving || generatingPersonas ? 0.7 : 1 }}>
                   {saving ? 'Saving…' : generatingPersonas ? '⏳ AI persona pitches generating…' : editId ? '✅ Update' : '🚀 Publish'}
                 </button>
                 <button onClick={() => { resetForm(); setSection('projects') }}
-                  style={{ background: 'transparent', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 8, padding: '12px 20px', color: '#A5B4FC', cursor: 'pointer', fontSize: 14 }}>
+                  style={{ background: 'transparent', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 8, padding: '12px 20px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14 }}>
                   Cancel
                 </button>
                 {generatingPersonas && (
@@ -984,9 +986,9 @@ Write ONLY the pitch script. No labels or preamble.`
           {section === 'locations' && (
             <div>
               <h2 style={{ fontSize: isMobile ? 17 : 20, marginBottom: 6 }}>📍 Locations ({locations.length})</h2>
-              <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Locations here appear in the salesperson filter. Only unused locations can be deleted.</p>
+              <p style={{ fontSize: 13, color: 'var(--text-faint)', marginBottom: 20 }}>Locations here appear in the salesperson filter. Only unused locations can be deleted.</p>
               <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 14 }}>Add New Location</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 14 }}>Add New Location</div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <input style={inp} value={newLocation} onChange={e => handleNewLocationInput(e.target.value)} placeholder="e.g. Devanahalli" onKeyDown={e => e.key === 'Enter' && canAddLoc && addLocation()} />
@@ -1001,19 +1003,19 @@ Write ONLY the pitch script. No labels or preamble.`
                     {addLocForce && <div style={{ marginTop: 4, fontSize: 11, color: '#10B981' }}>✓ Confirmed — click Add Location.</div>}
                   </div>
                   <button onClick={addLocation} disabled={!canAddLoc}
-                    style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '10px 20px', color: 'white', fontWeight: 600, cursor: canAddLoc ? 'pointer' : 'default', fontSize: 14, opacity: canAddLoc ? 1 : 0.4, whiteSpace: 'nowrap' }}>
+                    style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '10px 20px', color: '#FFFFFF', fontWeight: 600, cursor: canAddLoc ? 'pointer' : 'default', fontSize: 14, opacity: canAddLoc ? 1 : 0.4, whiteSpace: 'nowrap' }}>
                     + Add Location
                   </button>
                 </div>
-                <div style={{ fontSize: 11, color: '#475569', marginTop: 10 }}>💡 Use full names — "Sarjapur Road" not "Sarj Rd".</div>
+                <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginTop: 10 }}>💡 Use full names — "Sarjapur Road" not "Sarj Rd".</div>
               </div>
-              <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(79,70,229,0.2)' }}>
+              <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                   <thead>
-                    <tr style={{ background: 'rgba(79,70,229,0.2)' }}>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', color: '#A5B4FC', fontWeight: 600 }}>Location</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'center', color: '#A5B4FC', fontWeight: 600 }}>Projects</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'right', color: '#A5B4FC', fontWeight: 600 }}>Action</th>
+                    <tr style={{ background: 'var(--border)' }}>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Location</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>Projects</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1024,12 +1026,12 @@ Write ONLY the pitch script. No labels or preamble.`
                           <td style={{ padding: '13px 16px', fontWeight: 500 }}>{loc.name}</td>
                           <td style={{ padding: '13px 16px', textAlign: 'center' }}>
                             {count > 0
-                              ? <span style={{ background: 'rgba(99,102,241,0.2)', color: '#A5B4FC', padding: '2px 10px', borderRadius: 12, fontSize: 12 }}>{count} project{count > 1 ? 's' : ''}</span>
-                              : <span style={{ color: '#475569', fontSize: 12 }}>—</span>}
+                              ? <span style={{ background: 'rgba(99,102,241,0.2)', color: 'var(--text-muted)', padding: '2px 10px', borderRadius: 12, fontSize: 12 }}>{count} project{count > 1 ? 's' : ''}</span>
+                              : <span style={{ color: 'var(--text-fainter)', fontSize: 12 }}>—</span>}
                           </td>
                           <td style={{ padding: '13px 16px', textAlign: 'right' }}>
                             {count > 0
-                              ? <span style={{ fontSize: 12, color: '#475569' }}>🔒 In use</span>
+                              ? <span style={{ fontSize: 12, color: 'var(--text-fainter)' }}>🔒 In use</span>
                               : <button onClick={() => deleteLocation(loc.id, loc.name)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>🗑 Delete</button>}
                           </td>
                         </tr>
@@ -1046,19 +1048,19 @@ Write ONLY the pitch script. No labels or preamble.`
             <div>
               <h2 style={{ fontSize: isMobile ? 17 : 20, marginBottom: 20 }}>👥 Team Accounts</h2>
               <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 16 }}>Add New Salesperson</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 16 }}>Add New Salesperson</div>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                   <div><label style={lbl}>Name</label><input style={inp} value={newName} onChange={e => setNewName(e.target.value)} placeholder="Rahul S." /></div>
                   <div><label style={lbl}>Mobile</label><input style={inp} value={newMobile} onChange={e => setNewMobile(e.target.value)} placeholder="9902700565" /></div>
                   <div><label style={lbl}>Email *</label><input style={inp} type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="rahul@example.com" /></div>
                   <div><label style={lbl}>Password</label><input style={inp} type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="Set password" /></div>
                 </div>
-                <div style={{ fontSize: 11, color: '#475569', marginBottom: 10 }}>* Email is required — it's how Forgot Password reset links get sent.</div>
-                <button onClick={addTeamMember} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 7, padding: '10px 22px', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>+ Add Salesperson</button>
+                <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginBottom: 10 }}>* Email is required — it's how Forgot Password reset links get sent.</div>
+                <button onClick={addTeamMember} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 7, padding: '10px 22px', color: '#FFFFFF', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>+ Add Salesperson</button>
               </div>
               <div>
                 {team.map(m => (
-                  <div key={m.id} style={{ background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 10, padding: 16, marginBottom: 10 }}>
+                  <div key={m.id} style={{ background: 'rgba(79,70,229,0.08)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 10 }}>
                     {editingTeamId === m.id ? (
                       <div>
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
@@ -1068,22 +1070,22 @@ Write ONLY the pitch script. No labels or preamble.`
                           <div><label style={lbl}>New Password</label><input style={inp} type="password" value={editTeam.password} onChange={e => setEditTeam(t => ({ ...t, password: e.target.value }))} placeholder="Leave blank to keep current" /></div>
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <button onClick={() => saveEditTeam(m.id)} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 6, padding: '7px 16px', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Save</button>
-                          <button onClick={cancelEditTeam} style={{ background: 'transparent', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 6, padding: '7px 16px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+                          <button onClick={() => saveEditTeam(m.id)} style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 6, padding: '7px 16px', color: '#FFFFFF', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Save</button>
+                          <button onClick={cancelEditTeam} style={{ background: 'transparent', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 6, padding: '7px 16px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
                         </div>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 15 }}>{m.name}</div>
-                          <div style={{ fontSize: 13, color: '#94A3B8' }}>{m.mobile_number}</div>
+                          <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>{m.mobile_number}</div>
                           {m.email
-                            ? <div style={{ fontSize: 13, color: '#94A3B8' }}>{m.email}</div>
+                            ? <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>{m.email}</div>
                             : <div style={{ fontSize: 12, color: '#F59E0B', marginTop: 2 }}>⚠ No email — Forgot Password won't work until this is added</div>}
-                          <span style={{ background: m.role === 'admin' ? 'rgba(147,51,234,0.25)' : 'rgba(79,70,229,0.2)', color: m.role === 'admin' ? '#C084FC' : '#A5B4FC', fontSize: 11, padding: '2px 9px', borderRadius: 10, marginTop: 4, display: 'inline-block' }}>{m.role}</span>
+                          <span style={{ background: m.role === 'admin' ? 'rgba(147,51,234,0.25)' : 'var(--border)', color: m.role === 'admin' ? '#C084FC' : 'var(--text-muted)', fontSize: 11, padding: '2px 9px', borderRadius: 10, marginTop: 4, display: 'inline-block' }}>{m.role}</span>
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <button onClick={() => startEditTeam(m)} style={{ background: 'rgba(79,70,229,0.3)', border: 'none', borderRadius: 5, padding: '6px 14px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>Edit</button>
+                          <button onClick={() => startEditTeam(m)} style={{ background: 'var(--border-strong)', border: 'none', borderRadius: 5, padding: '6px 14px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>Edit</button>
                           {m.role !== 'admin' && (
                             <button onClick={() => removeTeamMember(m.id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 5, padding: '6px 14px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>Remove</button>
                           )}
