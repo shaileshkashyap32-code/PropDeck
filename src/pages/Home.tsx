@@ -48,6 +48,15 @@ const PMIN = 5000000;
 const PMAX = 80000000;
 const STEP = 500000;
 
+// Quick-select budget bands, in the brackets clients usually frame in.
+// `max: PMAX` means "and above" (the slider's top is 8Cr+).
+const BUDGET_PRESETS: { label: string; min: number; max: number }[] = [
+  { label: 'Under ₹1Cr', min: PMIN, max: 10000000 },
+  { label: '₹1–2Cr', min: 10000000, max: 20000000 },
+  { label: '₹2–4Cr', min: 20000000, max: 40000000 },
+  { label: '₹4Cr+', min: 40000000, max: PMAX },
+];
+
 function fmt(n: number, atMax = false) {
   if (atMax || n >= PMAX) return '8Cr+';
   if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
@@ -163,6 +172,22 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
             <DualSlider vMin={bMin} vMax={bMax} onChange={(a, b) => { setBMin(a); setBMax(b); }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#475569', marginTop: 6 }}>
               <span>₹50L</span><span>₹8Cr+</span>
+            </div>
+            {/* Quick budget bands — same chip pattern as the other filters. */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+              {BUDGET_PRESETS.map((p) => {
+                const on = bMin === p.min && bMax === p.max;
+                return (
+                  <button
+                    key={p.label}
+                    // Tapping the active band resets to the full range.
+                    onClick={() => { setBMin(on ? PMIN : p.min); setBMax(on ? PMAX : p.max); }}
+                    style={chipStyle(on)}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
