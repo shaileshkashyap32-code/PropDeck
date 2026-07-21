@@ -93,7 +93,13 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
   const [search, setSearch] = useState('');
   const [bMin, setBMin] = useState(PMIN);
   const [bMax, setBMax] = useState(PMAX);
-  const [location, setLocation] = useState('');
+  // Budget has two mutually exclusive modes: any number of preset bands
+  // (matched as a union — "Under ₹1Cr" plus "₹4Cr+" means either), or a custom
+  // slider range. Picking a band parks the slider; dragging the slider clears
+  // the bands. Combining them would mean intersecting a union with a range,
+  // which is impossible to read off the UI.
+  const [bands, setBands] = useState<string[]>([]);
+  const [selLoc, setSelLoc] = useState<string[]>([]);
   const [selType, setSelType] = useState<string[]>([]);
   const [status, setStatus] = useState('all');
 
@@ -109,6 +115,13 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
   }, []);
 
   const toggleType = (b: string) => setSelType((p) => (p.includes(b) ? p.filter((x) => x !== b) : [...p, b]));
+  const toggleLoc = (l: string) => setSelLoc((p) => (p.includes(l) ? p.filter((x) => x !== l) : [...p, l]));
+  const toggleBand = (label: string) => setBands((p) => (p.includes(label) ? p.filter((x) => x !== label) : [...p, label]));
+
+  // A project matches a budget window if its price range overlaps it at all —
+  // a ₹96L–₹5.8Cr project belongs in "Under ₹1Cr" and in "₹4Cr+".
+  const overlaps = (p: Project, min: number, max: number) =>
+    p.price_max >= min && p.price_min <= (max >= PMAX ? Infinity : max);
 
   // "Commonly used" locations are derived from the catalogue rather than
   // hardcoded, so a suggestion can never point at zero projects.
@@ -122,23 +135,27 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
   }, [projects]);
 
   const clearAll = () => {
-    setBMin(PMIN); setBMax(PMAX); setLocation(''); setSelType([]); setStatus('all'); setSearch('');
+    setBMin(PMIN); setBMax(PMAX); setBands([]); setSelLoc([]); setSelType([]); setStatus('all'); setSearch('');
   };
 
   // Everything currently narrowing the results, each with its own undo. Without
   // this you have to scan four separate controls to work out why the list is
   // short — and a filter scrolled out of view is invisible entirely.
   const activeFilters: { key: string; label: string; remove: () => void }[] = [];
-  if (bMin !== PMIN || bMax !== PMAX) {
+  if (bands.length > 0) {
+    bands.forEach((b) => {
+      activeFilters.push({ key: `band-${b}`, label: b, remove: () => toggleBand(b) });
+    });
+  } else if (bMin !== PMIN || bMax !== PMAX) {
     activeFilters.push({
       key: 'budget',
       label: `${fmt(bMin)} – ${fmt(bMax, bMax >= PMAX)}`,
       remove: () => { setBMin(PMIN); setBMax(PMAX); },
     });
   }
-  if (location) {
-    activeFilters.push({ key: 'loc', label: location, remove: () => setLocation('') });
-  }
+  selLoc.forEach((l) => {
+    activeFilters.push({ key: `loc-${l}`, label: l, remove: () => toggleLoc(l) });
+  });
   selType.forEach((t) => {
     activeFilters.push({ key: `type-${t}`, label: t, remove: () => toggleType(t) });
   });
@@ -154,10 +171,13 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
   }
 
   const shown = projects.filter((p) => {
-    const maxB = bMax >= PMAX ? Infinity : bMax;
-    if (p.price_max < bMin) return false;
-    if (p.price_min > maxB) return false;
-    if (location && !p.location.toLowerCase().includes(location.toLowerCase())) return false;
+    if (bands.length > 0) {
+      // Union: match any one of the selected bands.
+      if (!BUDGET_PRESETS.some((b) => bands.includes(b.label) && overlaps(p, b.min, b.max))) return false;
+    } else if (!overlaps(p, bMin, bMax)) {
+      return false;
+    }
+    if (selLoc.length > 0 && !selLoc.some((l) => p.location.toLowerCase().includes(l.toLowerCase()))) return false;
     if (selType.length > 0 && !selType.some((b) => p.bhk_types?.some((t) => t.replace(/\s+/g, '').toLowerCase() === b.replace(/\s+/g, '').toLowerCase()))) return false;
     if (status !== 'all' && p.status !== status) return false;
     // Same matcher the search dropdown uses, so the cards behind it agree.
@@ -211,61 +231,58 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
           {/* Budget */}
           <div style={{ marginBottom: 26 }}>
             <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 8 }}>Budget Range</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: '#A5B4FC', marginBottom: 14 }}>
-              <span style={{ background: 'rgba(79,70,229,0.2)', padding: '3px 10px', borderRadius: 6 }}>{fmt(bMin)}</span>
-              <span style={{ color: '#475569' }}>to</span>
-              <span style={{ background: 'rgba(79,70,229,0.2)', padding: '3px 10px', borderRadius: 6 }}>{fmt(bMax, bMax >= PMAX)}</span>
+            {/* The slider is parked while bands are driving the filter — it can't
+                show a union of disjoint ranges, so pretending it does would lie. */}
+            <div style={{ opacity: bands.length ? 0.4 : 1, transition: 'opacity 120ms' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: '#A5B4FC', marginBottom: 14 }}>
+                <span style={{ background: 'rgba(79,70,229,0.2)', padding: '3px 10px', borderRadius: 6 }}>{fmt(bMin)}</span>
+                <span style={{ color: '#475569' }}>to</span>
+                <span style={{ background: 'rgba(79,70,229,0.2)', padding: '3px 10px', borderRadius: 6 }}>{fmt(bMax, bMax >= PMAX)}</span>
+              </div>
+              {/* Dragging drops back to a custom range. */}
+              <DualSlider vMin={bMin} vMax={bMax} onChange={(a, b) => { setBands([]); setBMin(a); setBMax(b); }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#475569', marginTop: 6 }}>
+                <span>₹50L</span><span>₹8Cr+</span>
+              </div>
             </div>
-            <DualSlider vMin={bMin} vMax={bMax} onChange={(a, b) => { setBMin(a); setBMax(b); }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#475569', marginTop: 6 }}>
-              <span>₹50L</span><span>₹8Cr+</span>
-            </div>
-            {/* Quick budget bands — same chip pattern as the other filters. */}
+            {/* Bands are multi-select: pick as many as you like, matched as a union. */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-              {BUDGET_PRESETS.map((p) => {
-                const on = bMin === p.min && bMax === p.max;
-                return (
-                  <button
-                    key={p.label}
-                    // Tapping the active band resets to the full range.
-                    onClick={() => { setBMin(on ? PMIN : p.min); setBMax(on ? PMAX : p.max); }}
-                    style={chipStyle(on)}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
+              {BUDGET_PRESETS.map((p) => (
+                <button key={p.label} onClick={() => toggleBand(p.label)} style={chipStyle(bands.includes(p.label))}>
+                  {p.label}
+                </button>
+              ))}
             </div>
+            {bands.length > 0 && (
+              <div style={{ fontSize: 10, color: '#64748B', marginTop: 7 }}>
+                Matching {bands.length === 1 ? 'this band' : `any of ${bands.length} bands`} — drag the slider for a custom range.
+              </div>
+            )}
           </div>
 
           {/* Location — full list in the dropdown, busiest few as chips below */}
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 8 }}>Location</div>
-            <select
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              style={{ width: '100%', background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(79,70,229,0.3)', borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 13, outline: 'none' }}
-            >
-              <option value="" style={{ background: '#1E1B4B' }}>All Locations</option>
-              {locations.map((l) => (
-                <option key={l} value={l} style={{ background: '#1E1B4B' }}>{l}</option>
-              ))}
-            </select>
+            <MultiSelect
+              options={locations}
+              selected={selLoc}
+              onToggle={toggleLoc}
+              onClear={() => setSelLoc([])}
+              placeholder="All Locations"
+              clearLabel="Clear locations"
+            />
             {popularLocations.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
-                {popularLocations.map((l) => {
-                  const on = location === l;
-                  return (
-                    <button
-                      key={l}
-                      // Tapping the active chip clears it, so it doubles as an undo.
-                      onClick={() => setLocation(on ? '' : l)}
-                      style={{ ...chipStyle(on), maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    >
-                      {l}
-                    </button>
-                  );
-                })}
+                {popularLocations.map((l) => (
+                  <button
+                    key={l}
+                    // Tapping an active chip removes just that location.
+                    onClick={() => toggleLoc(l)}
+                    style={{ ...chipStyle(selLoc.includes(l)), maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {l}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -281,6 +298,7 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
               onClear={() => setSelType([])}
               placeholder="All Types"
               renderLabel={(t) => (t === 'Plot' ? '🏞️ Plot' : t)}
+              clearLabel="Clear property types"
             />
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
               {POPULAR_TYPES.map((b) => (

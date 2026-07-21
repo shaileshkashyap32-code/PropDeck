@@ -17,9 +17,11 @@ interface Props {
   placeholder: string
   /** Optional per-option display text, e.g. adding an emoji. */
   renderLabel?: (value: string) => string
+  /** Accessible name for the clear (×) control. */
+  clearLabel?: string
 }
 
-export default function MultiSelect({ options, selected, onToggle, onClear, placeholder, renderLabel }: Props) {
+export default function MultiSelect({ options, selected, onToggle, onClear, placeholder, renderLabel, clearLabel = 'Clear selection' }: Props) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -73,7 +75,7 @@ export default function MultiSelect({ options, selected, onToggle, onClear, plac
           // Clearing from the trigger saves opening the panel just to undo.
           <span
             role="button"
-            aria-label="Clear property types"
+            aria-label={clearLabel}
             onClick={(e) => { e.stopPropagation(); onClear() }}
             style={{ color: '#818CF8', fontSize: 14, lineHeight: 1 }}
           >
