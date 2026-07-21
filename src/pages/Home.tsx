@@ -5,7 +5,7 @@ import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 import MultiSelect from '../components/MultiSelect';
 import BrandLogo from '../components/BrandLogo';
-import GlobalSearch from '../components/GlobalSearch';
+import GlobalSearch, { matchesQuery } from '../components/GlobalSearch';
 
 interface Project {
   id: string;
@@ -160,10 +160,8 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
     if (location && !p.location.toLowerCase().includes(location.toLowerCase())) return false;
     if (selType.length > 0 && !selType.some((b) => p.bhk_types?.some((t) => t.replace(/\s+/g, '').toLowerCase() === b.replace(/\s+/g, '').toLowerCase()))) return false;
     if (status !== 'all' && p.status !== status) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      if (!p.name.toLowerCase().includes(q) && !p.developer.toLowerCase().includes(q) && !p.location.toLowerCase().includes(q)) return false;
-    }
+    // Same matcher the search dropdown uses, so the cards behind it agree.
+    if (search && !matchesQuery(p, search)) return false;
     return true;
   });
 

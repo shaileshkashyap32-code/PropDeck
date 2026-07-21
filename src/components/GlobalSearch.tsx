@@ -16,6 +16,31 @@ export interface SearchHit {
   location: string
   price_min: number
   price_max: number
+  bhk_types?: string[] | null
+  status?: string | null
+}
+
+// Configurations are stored inconsistently ("3BHK" and "3 BHK" both occur), and
+// nobody types the space reliably either — so compare them with whitespace
+// removed. The Property Type filter already does the same.
+const squash = (s: string) => s.replace(/\s+/g, '').toLowerCase()
+
+/**
+ * Shared by the dropdown and Home's card grid so the two can never disagree
+ * about what matches. Covers what a salesperson would actually type: the
+ * project, who's building it, where it is, its configurations, and its status.
+ */
+export function matchesQuery(p: SearchHit, raw: string): boolean {
+  const q = raw.trim().toLowerCase()
+  if (!q) return true
+  if (
+    p.name.toLowerCase().includes(q) ||
+    p.developer.toLowerCase().includes(q) ||
+    p.location.toLowerCase().includes(q) ||
+    (p.status ?? '').toLowerCase().includes(q)
+  ) return true
+  const nq = squash(q)
+  return !!nq && !!p.bhk_types?.some((t) => squash(t).includes(nq))
 }
 
 interface Props {
@@ -57,7 +82,7 @@ export default function GlobalSearch({ onSelectProject, onQueryChange, value, pr
     if (hasPreloaded) return
     supabase
       .from('projects')
-      .select('id,name,developer,location,price_min,price_max')
+      .select('id,name,developer,location,price_min,price_max,bhk_types,status')
       .order('name')
       .then(({ data }) => { if (data) setItems(data as SearchHit[]) })
   }, [hasPreloaded])
@@ -72,15 +97,7 @@ export default function GlobalSearch({ onSelectProject, onQueryChange, value, pr
   }, [open])
 
   const query = q.trim().toLowerCase()
-  const hits = query
-    ? items
-        .filter((p) =>
-          p.name.toLowerCase().includes(query) ||
-          p.developer.toLowerCase().includes(query) ||
-          p.location.toLowerCase().includes(query)
-        )
-        .slice(0, MAX_HITS)
-    : []
+  const hits = query ? items.filter((p) => matchesQuery(p, query)).slice(0, MAX_HITS) : []
 
   const update = (next: string) => {
     if (value === undefined) setOwnQ(next)
