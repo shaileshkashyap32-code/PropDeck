@@ -217,11 +217,15 @@ function App() {
     onLogout: doLogout,
   }
 
+  // Opening a project from the top-bar search works from any screen.
+  const openProject = (id: string) => { setProjectId(id); setView('project') }
+
   if (view === 'project' && projectId) {
     return <ProjectPage
       projectId={projectId}
       user={user}
       onBack={() => setView('home')}
+      onViewProject={openProject}
       {...nav}
     />
   }
@@ -229,6 +233,7 @@ function App() {
   if (view === 'admin' && user.role === 'admin') {
     return <AdminPanel
       user={user}
+      onViewProject={openProject}
       {...nav}
     />
   }
@@ -244,7 +249,7 @@ function App() {
 
   return <Home
     user={user}
-    onViewProject={(id: string) => { setProjectId(id); setView('project') }}
+    onViewProject={openProject}
     {...nav}
   />
 }

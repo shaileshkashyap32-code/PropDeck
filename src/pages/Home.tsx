@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 import MultiSelect from '../components/MultiSelect';
+import BrandLogo from '../components/BrandLogo';
+import GlobalSearch from '../components/GlobalSearch';
 
 interface Project {
   id: string;
@@ -32,6 +34,10 @@ const TYPES = ['Studio','1BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Penthouse
 // outside the dropdown as one-click chips; the full list is still in it.
 const POPULAR_TYPES = ['1BHK','2BHK','3BHK','4BHK'];
 const POPULAR_LOCATION_COUNT = 5;
+// Outer width of the filter sidebar, shared with the top bar's logo column so
+// the two borders form one continuous vertical line. Border-box, so this
+// includes the 18px padding and 1px border (content stays 248px as before).
+const SIDEBAR_WIDTH = 285;
 
 // Shared look for the quick-pick chips under both dropdowns.
 const chipStyle = (on: boolean): CSSProperties => ({
@@ -119,6 +125,34 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
     setBMin(PMIN); setBMax(PMAX); setLocation(''); setSelType([]); setStatus('all'); setSearch('');
   };
 
+  // Everything currently narrowing the results, each with its own undo. Without
+  // this you have to scan four separate controls to work out why the list is
+  // short — and a filter scrolled out of view is invisible entirely.
+  const activeFilters: { key: string; label: string; remove: () => void }[] = [];
+  if (bMin !== PMIN || bMax !== PMAX) {
+    activeFilters.push({
+      key: 'budget',
+      label: `${fmt(bMin)} – ${fmt(bMax, bMax >= PMAX)}`,
+      remove: () => { setBMin(PMIN); setBMax(PMAX); },
+    });
+  }
+  if (location) {
+    activeFilters.push({ key: 'loc', label: location, remove: () => setLocation('') });
+  }
+  selType.forEach((t) => {
+    activeFilters.push({ key: `type-${t}`, label: t, remove: () => toggleType(t) });
+  });
+  if (status !== 'all') {
+    activeFilters.push({
+      key: 'status',
+      label: status === 'Ready to Move' ? 'Ready to Move' : 'Under Construction',
+      remove: () => setStatus('all'),
+    });
+  }
+  if (search.trim()) {
+    activeFilters.push({ key: 'search', label: `“${search.trim()}”`, remove: () => setSearch('') });
+  }
+
   const shown = projects.filter((p) => {
     const maxB = bMax >= PMAX ? Infinity : bMax;
     if (p.price_max < bMin) return false;
@@ -137,29 +171,44 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
     <AppShell
       mainStyle={{ padding: 20 }}
       topBar={
-        <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>P</div>
-          <span style={{ fontWeight: 700, fontSize: 17, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PropDeck</span>
-        </div>
-        <input
-          style={{ flex: 1, maxWidth: 400, background: 'rgba(79,70,229,0.15)', border: '1px solid rgba(79,70,229,0.3)', borderRadius: 8, padding: '8px 14px', color: 'white', fontSize: 13, outline: 'none' }}
-          placeholder="Search projects, developers, locations…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <div style={{ marginLeft: 'auto' }}>
-          {/* Already home, so no Home entry in the menu here. */}
-          <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoHome: undefined })} />
-        </div>
+        <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: 0, height: 56, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          {/* Logo sits in its own column, its divider continuing the sidebar
+              border directly below. */}
+          <BrandLogo onClick={nav.onGoHome} zoneWidth={SIDEBAR_WIDTH} />
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 16, padding: '0 24px', minWidth: 0 }}>
+            <GlobalSearch projects={projects} value={search} onQueryChange={setSearch} onSelectProject={onViewProject} />
+            <div style={{ marginLeft: 'auto' }}>
+              {/* Already home, so no Home entry in the menu here. */}
+              <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoHome: undefined })} />
+            </div>
+          </div>
         </nav>
       }
       sidebar={
-        <aside style={{ width: 248, background: 'rgba(10,8,30,0.8)', borderRight: '1px solid rgba(79,70,229,0.2)', padding: 18, overflowY: 'auto', flexShrink: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <aside style={{ width: SIDEBAR_WIDTH, boxSizing: 'border-box', background: 'rgba(10,8,30,0.8)', borderRight: '1px solid rgba(79,70,229,0.2)', padding: 18, overflowY: 'auto', flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: activeFilters.length ? 12 : 20 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#A5B4FC', textTransform: 'uppercase', letterSpacing: 1 }}>Filters</span>
-            <button onClick={clearAll} style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer', fontSize: 12 }}>Clear all</button>
+            {activeFilters.length > 0 && (
+              <button onClick={clearAll} style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer', fontSize: 12 }}>Clear all</button>
+            )}
           </div>
+
+          {/* Applied filters, each removable on its own. */}
+          {activeFilters.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid rgba(79,70,229,0.18)' }}>
+              {activeFilters.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={f.remove}
+                  title={`Remove ${f.label}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%', padding: '4px 8px 4px 10px', borderRadius: 20, fontSize: 12, cursor: 'pointer', border: '1px solid #6366F1', background: 'rgba(99,102,241,0.3)', color: '#C7D2FE' }}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label}</span>
+                  <span aria-hidden style={{ color: '#A5B4FC', fontSize: 13, lineHeight: 1 }}>×</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Budget */}
           <div style={{ marginBottom: 26 }}>

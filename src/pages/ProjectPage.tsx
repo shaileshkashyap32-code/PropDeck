@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
+import BrandLogo from '../components/BrandLogo';
+import GlobalSearch from '../components/GlobalSearch';
 
 interface Landmark {
   name: string;
@@ -44,6 +46,7 @@ interface Props {
   projectId: string;
   user: any;
   onBack: () => void;
+  onViewProject: (id: string) => void;
   onGoHome: () => void;
   onGoAdmin?: () => void;
   onGoProfile: () => void;
@@ -80,7 +83,7 @@ function stripBold(text: string) {
   return text.replace(/\*\*/g, '');
 }
 
-export default function ProjectPage({ projectId, user, onBack, ...menuNav }: Props) {
+export default function ProjectPage({ projectId, user, onBack, onViewProject, ...menuNav }: Props) {
   const [project, setProject] = useState<Project | null>(null);
   const [similar, setSimilar] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,12 +160,10 @@ export default function ProjectPage({ projectId, user, onBack, ...menuNav }: Pro
 
   // ── Nav ────────────────────────────────────────────────────────────────────
   const nav = (
-    <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>P</div>
-        <span style={{ fontWeight: 700, fontSize: 17, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PropDeck</span>
-      </div>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+    <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+      <BrandLogo onClick={menuNav.onGoHome} />
+      <GlobalSearch onSelectProject={onViewProject} />
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginLeft: 'auto' }}>
         <button onClick={onBack} style={{ background: 'rgba(79,70,229,0.2)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 7, padding: '6px 16px', color: '#A5B4FC', cursor: 'pointer', fontSize: 13 }}>← Back</button>
         <UserMenu user={user} groups={buildAccountMenu({ ...menuNav, isAdmin: user.role === 'admin' })} />
       </div>

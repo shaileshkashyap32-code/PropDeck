@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react'
 import { supabase, getSession } from '../lib/supabase'
 import AppShell from '../components/AppShell'
 import UserMenu, { buildAccountMenu } from '../components/UserMenu'
+import BrandLogo from '../components/BrandLogo'
+import GlobalSearch from '../components/GlobalSearch'
 
 interface Props {
   user: any
   onGoHome: () => void
+  onViewProject: (id: string) => void
   onGoAdmin?: () => void
   onGoProfile: () => void
   onGoTemplates: () => void
@@ -73,7 +76,7 @@ function fmt(n: number) {
   return `₹${n}`
 }
 
-export default function AdminPanel({ user, ...nav }: Props) {
+export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [section, setSection] = useState<'projects' | 'add' | 'locations' | 'team'>('projects')
   const [projects, setProjects] = useState<Project[]>([])
   const [form, setForm] = useState<FormData>(EMPTY)
@@ -657,14 +660,14 @@ Write ONLY the pitch script. No labels or preamble.`
     <AppShell
       mainStyle={{ padding: isMobile ? 16 : 24 }}
       topBar={
-        <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#4F46E5,#9333EA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>P</div>
-          {!isMobile && <span style={{ fontWeight: 700, fontSize: 17, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PropDeck</span>}
-          <span style={{ fontSize: 11, background: 'rgba(147,51,234,0.3)', color: '#C084FC', padding: '2px 8px', borderRadius: 10 }}>Admin</span>
+        <nav style={{ background: 'rgba(30,27,75,0.95)', borderBottom: '1px solid rgba(79,70,229,0.25)', padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+        <BrandLogo onClick={nav.onGoHome} compact={isMobile} badge="Admin" />
+        {/* The panel is desktop-first; on mobile the bar has no room for search. */}
+        {!isMobile && <GlobalSearch onSelectProject={onViewProject} />}
+        <div style={{ marginLeft: 'auto' }}>
+          {/* Already in the panel, so the menu drops its Admin Panel entry here. */}
+          <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoAdmin: undefined })} />
         </div>
-        {/* Already in the panel, so the menu drops its Admin Panel entry here. */}
-        <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoAdmin: undefined })} />
         </nav>
       }
       subBar={isMobile && (
