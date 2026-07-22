@@ -5,6 +5,7 @@ import UserMenu, { buildAccountMenu } from '../components/UserMenu'
 import BrandLogo from '../components/BrandLogo'
 import GlobalSearch from '../components/GlobalSearch'
 import ThemeToggle from '../components/ThemeToggle'
+import { ZONES } from '../lib/zones'
 
 interface Props {
   user: any
@@ -25,6 +26,7 @@ interface Project {
 interface LocItem {
   id: number
   name: string
+  zones: string[]
 }
 
 interface UnitConfig {
@@ -96,6 +98,7 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [locations, setLocations] = useState<LocItem[]>([])
   const [locationCounts, setLocationCounts] = useState<Record<string, number>>({})
   const [newLocation, setNewLocation] = useState('')
+  const [newLocZones, setNewLocZones] = useState<string[]>([])
   const [addLocWarning, setAddLocWarning] = useState('')
   const [addLocIsDuplicate, setAddLocIsDuplicate] = useState(false)
   const [addLocForce, setAddLocForce] = useState(false)
@@ -124,7 +127,7 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
 
   const loadLocations = async () => {
     const { data } = await supabase.from('locations').select('*').order('name')
-    setLocations((data as LocItem[]) || [])
+    setLocations(((data as any[]) || []).map((l) => ({ id: l.id, name: l.name, zones: l.zones ?? [] })))
   }
 
   const loadTeam = async () => {
@@ -462,11 +465,23 @@ Write ONLY the pitch script. No labels or preamble.`
   const addLocation = async () => {
     const name = newLocation.trim()
     if (!name || addLocIsDuplicate) return
-    const { error } = await supabase.rpc('admin_add_location', { p_token: getSession(), p_name: name })
+    let { error } = await supabase.rpc('admin_add_location', { p_token: getSession(), p_name: name, p_zones: newLocZones })
+    // Before the zones migration runs, the 3-arg RPC doesn't exist — fall back
+    // to the original so adding locations keeps working (unzoned).
+    if (error && /function|does not exist|schema cache/i.test(error.message)) {
+      ({ error } = await supabase.rpc('admin_add_location', { p_token: getSession(), p_name: name }))
+    }
     if (error) { flash('Error: ' + error.message, 'err'); return }
     flash(`✅ "${name}" added!`)
-    setNewLocation(''); setAddLocWarning(''); setAddLocForce(false); setAddLocIsDuplicate(false)
+    setNewLocation(''); setNewLocZones([]); setAddLocWarning(''); setAddLocForce(false); setAddLocIsDuplicate(false)
     loadLocations()
+  }
+
+  // Save an existing area's zones. Optimistic — the picker updates in place.
+  const setLocationZones = async (id: number, zones: string[]) => {
+    setLocations((prev) => prev.map((l) => (l.id === id ? { ...l, zones } : l)))
+    const { error } = await supabase.rpc('admin_set_location_zones', { p_token: getSession(), p_id: id, p_zones: zones })
+    if (error) { flash('Error: ' + error.message, 'err'); loadLocations() }
   }
 
   const deleteLocation = async (id: number, name: string) => {
@@ -1013,6 +1028,23 @@ Write ONLY the pitch script. No labels or preamble.`
                     + Add Location
                   </button>
                 </div>
+                {/* Zone assignment. Optional — an unzoned area still shows under
+                    "All Bangalore" for salespeople, it just sits under no zone. */}
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>Bangalore zone(s) — pick one, or two for a border area</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {ZONES.map((z) => {
+                      const on = newLocZones.includes(z)
+                      return (
+                        <button key={z} type="button"
+                          onClick={() => setNewLocZones((p) => (on ? p.filter((x) => x !== z) : [...p, z]))}
+                          style={{ padding: '4px 11px', borderRadius: 20, fontSize: 12, cursor: 'pointer', border: '1px solid', borderColor: on ? '#6366F1' : 'var(--border-strong)', background: on ? 'rgba(99,102,241,0.3)' : 'transparent', color: on ? 'var(--text-muted)' : 'var(--text-faint)' }}>
+                          {z}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
                 <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginTop: 10 }}>💡 Use full names — "Sarjapur Road" not "Sarj Rd".</div>
               </div>
               <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
@@ -1020,6 +1052,7 @@ Write ONLY the pitch script. No labels or preamble.`
                   <thead>
                     <tr style={{ background: 'var(--border)' }}>
                       <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Location</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Zones <span style={{ fontWeight: 400, color: 'var(--text-fainter)' }}>(click to toggle)</span></th>
                       <th style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>Projects</th>
                       <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>Action</th>
                     </tr>
@@ -1030,6 +1063,21 @@ Write ONLY the pitch script. No labels or preamble.`
                       return (
                         <tr key={loc.id} style={{ borderTop: '1px solid rgba(79,70,229,0.12)' }}>
                           <td style={{ padding: '13px 16px', fontWeight: 500 }}>{loc.name}</td>
+                          <td style={{ padding: '13px 16px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                              {ZONES.map((z) => {
+                                const on = loc.zones.includes(z)
+                                return (
+                                  <button key={z} type="button"
+                                    onClick={() => setLocationZones(loc.id, on ? loc.zones.filter((x) => x !== z) : [...loc.zones, z])}
+                                    title={on ? `Remove ${z}` : `Add ${z}`}
+                                    style={{ padding: '2px 9px', borderRadius: 12, fontSize: 11, cursor: 'pointer', border: '1px solid', borderColor: on ? '#6366F1' : 'var(--border-strong)', background: on ? 'rgba(99,102,241,0.3)' : 'transparent', color: on ? 'var(--text-muted)' : 'var(--text-fainter)' }}>
+                                    {z}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </td>
                           <td style={{ padding: '13px 16px', textAlign: 'center' }}>
                             {count > 0
                               ? <span style={{ background: 'rgba(99,102,241,0.2)', color: 'var(--text-muted)', padding: '2px 10px', borderRadius: 12, fontSize: 12 }}>{count} project{count > 1 ? 's' : ''}</span>

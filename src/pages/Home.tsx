@@ -7,6 +7,7 @@ import MultiSelect from '../components/MultiSelect';
 import BrandLogo from '../components/BrandLogo';
 import GlobalSearch, { matchesQuery } from '../components/GlobalSearch';
 import ThemeToggle from '../components/ThemeToggle';
+import { ZONES, zoneLabel } from '../lib/zones';
 
 interface Project {
   id: string;
@@ -19,6 +20,10 @@ interface Project {
   possession_date: string;
   status: string;
   image_url: string | null;
+}
+interface LocationRow {
+  name: string;
+  zones: string[];
 }
 interface Props {
   user: any
@@ -89,7 +94,7 @@ function DualSlider({ vMin, vMax, onChange }: { vMin: number; vMax: number; onCh
 
 export default function Home({ user, onViewProject, ...nav }: Props) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [locations, setLocations] = useState<string[]>([]);
+  const [locations, setLocations] = useState<LocationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [bMin, setBMin] = useState(PMIN);
@@ -100,24 +105,52 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
   // the bands. Combining them would mean intersecting a union with a range,
   // which is impossible to read off the UI.
   const [bands, setBands] = useState<string[]>([]);
+  const [selZones, setSelZones] = useState<string[]>([]);
   const [selLoc, setSelLoc] = useState<string[]>([]);
   const [selType, setSelType] = useState<string[]>([]);
   const [status, setStatus] = useState('all');
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('projects').select('*').order('name'),
-      supabase.from('locations').select('name').order('name'),
-    ]).then(([{ data: projectsData }, { data: locsData }]) => {
+    (async () => {
+      const { data: projectsData } = await supabase.from('projects').select('*').order('name');
       setProjects((projectsData as Project[]) || []);
-      setLocations((locsData || []).map((l: { name: string }) => l.name));
+
+      // Prefer name+zones, but tolerate the column not existing yet (before the
+      // zones migration is run) so the page never hard-fails — areas just show
+      // unzoned until then.
+      let locs = await supabase.from('locations').select('name,zones').order('name');
+      if (locs.error) locs = await supabase.from('locations').select('name').order('name');
+      setLocations(((locs.data as { name: string; zones?: string[] | null }[]) || [])
+        .map((l) => ({ name: l.name, zones: l.zones ?? [] })));
+
       setLoading(false);
-    });
+    })();
   }, []);
 
   const toggleType = (b: string) => setSelType((p) => (p.includes(b) ? p.filter((x) => x !== b) : [...p, b]));
   const toggleLoc = (l: string) => setSelLoc((p) => (p.includes(l) ? p.filter((x) => x !== l) : [...p, l]));
   const toggleBand = (label: string) => setBands((p) => (p.includes(label) ? p.filter((x) => x !== label) : [...p, label]));
+
+  // Areas belonging to the picked zones (all areas when no zone is picked).
+  // The area dropdown and popular chips are scoped to this so a salesperson who
+  // said "North" only ever sees North's areas.
+  const areasInScope = selZones.length
+    ? locations.filter((l) => l.zones.some((z) => selZones.includes(z))).map((l) => l.name)
+    : locations.map((l) => l.name);
+
+  // Zones the map records for a given project's location (by exact name).
+  const zonesOf = (loc: string) => locations.find((l) => l.name === loc)?.zones ?? [];
+
+  const toggleZone = (z: string) => setSelZones((prev) => {
+    const next = prev.includes(z) ? prev.filter((x) => x !== z) : [...prev, z];
+    // Drop any already-picked area that falls outside the new zone set, so the
+    // area chips can't contradict the zone chips.
+    if (next.length) {
+      const allowed = new Set(locations.filter((l) => l.zones.some((zz) => next.includes(zz))).map((l) => l.name));
+      setSelLoc((locs) => locs.filter((l) => allowed.has(l)));
+    }
+    return next;
+  });
 
   // A project matches a budget window if its price range overlaps it at all —
   // a ₹96L–₹5.8Cr project belongs in "Under ₹1Cr" and in "₹4Cr+".
@@ -127,16 +160,20 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
   // "Commonly used" locations are derived from the catalogue rather than
   // hardcoded, so a suggestion can never point at zero projects.
   const popularLocations = useMemo(() => {
+    const inScope = new Set(areasInScope);
     const counts = new Map<string, number>();
-    projects.forEach((p) => counts.set(p.location, (counts.get(p.location) ?? 0) + 1));
+    projects.forEach((p) => {
+      if (!inScope.has(p.location)) return;
+      counts.set(p.location, (counts.get(p.location) ?? 0) + 1);
+    });
     return [...counts.entries()]
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, POPULAR_LOCATION_COUNT)
       .map(([name]) => name);
-  }, [projects]);
+  }, [projects, areasInScope]);
 
   const clearAll = () => {
-    setBMin(PMIN); setBMax(PMAX); setBands([]); setSelLoc([]); setSelType([]); setStatus('all'); setSearch('');
+    setBMin(PMIN); setBMax(PMAX); setBands([]); setSelZones([]); setSelLoc([]); setSelType([]); setStatus('all'); setSearch('');
   };
 
   // Everything currently narrowing the results, each with its own undo. Without
@@ -154,6 +191,9 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
       remove: () => { setBMin(PMIN); setBMax(PMAX); },
     });
   }
+  selZones.forEach((z) => {
+    activeFilters.push({ key: `zone-${z}`, label: zoneLabel(z), remove: () => toggleZone(z) });
+  });
   selLoc.forEach((l) => {
     activeFilters.push({ key: `loc-${l}`, label: l, remove: () => toggleLoc(l) });
   });
@@ -178,7 +218,12 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
     } else if (!overlaps(p, bMin, bMax)) {
       return false;
     }
-    if (selLoc.length > 0 && !selLoc.some((l) => p.location.toLowerCase().includes(l.toLowerCase()))) return false;
+    // Specific areas win; otherwise a picked zone means "anywhere in that zone".
+    if (selLoc.length > 0) {
+      if (!selLoc.some((l) => p.location.toLowerCase().includes(l.toLowerCase()))) return false;
+    } else if (selZones.length > 0 && !zonesOf(p.location).some((z) => selZones.includes(z))) {
+      return false;
+    }
     if (selType.length > 0 && !selType.some((b) => p.bhk_types?.some((t) => t.replace(/\s+/g, '').toLowerCase() === b.replace(/\s+/g, '').toLowerCase()))) return false;
     if (status !== 'all' && p.status !== status) return false;
     // Same matcher the search dropdown uses, so the cards behind it agree.
@@ -263,15 +308,23 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
             )}
           </div>
 
-          {/* Location — full list in the dropdown, busiest few as chips below */}
+          {/* Location — pick a Bangalore zone first, then narrow to its areas.
+              No zone = All Bangalore, the area list spans every zone. */}
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>Location</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+              {ZONES.map((z) => (
+                <button key={z} onClick={() => toggleZone(z)} style={chipStyle(selZones.includes(z))}>
+                  {z}
+                </button>
+              ))}
+            </div>
             <MultiSelect
-              options={locations}
+              options={areasInScope}
               selected={selLoc}
               onToggle={toggleLoc}
               onClear={() => setSelLoc([])}
-              placeholder="All Locations"
+              placeholder={selZones.length ? `All areas in ${selZones.map(zoneLabel).join(', ')}` : 'All Locations'}
               clearLabel="Clear locations"
             />
             {popularLocations.length > 0 && (
