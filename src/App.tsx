@@ -154,6 +154,22 @@ function App() {
     sessionStorage.setItem(VIEW_KEY, JSON.stringify({ view, projectId }))
   }, [user, view, projectId])
 
+  // The login RPCs don't return the avatar, so pull it in once after login and
+  // merge it onto `user` — that's what feeds the photo into every top bar.
+  // Silent if the avatars migration hasn't been applied yet (RPC missing).
+  useEffect(() => {
+    if (!user || user.avatar_url !== undefined) return
+    const token = getSession()
+    if (!token) return
+    supabase.rpc('get_my_avatar', { p_token: token }).then(({ data, error }) => {
+      // Set even when null, so `avatar_url` becomes defined and we don't refetch.
+      if (!error) setUser((u: any) => (u ? { ...u, avatar_url: data ?? null } : u))
+    })
+  }, [user?.id, user?.avatar_url])
+
+  const updateAvatar = (url: string | null) =>
+    setUser((u: any) => (u ? { ...u, avatar_url: url } : u))
+
   // Clear the PropDeck session (server + local) and the Supabase Auth session,
   // otherwise a Google user would get silently re-logged-in.
   const doLogout = async () => {
@@ -243,6 +259,7 @@ function App() {
       user={user}
       section={view === 'templates' ? 'templates' : 'profile'}
       onBack={() => setView('home')}
+      onAvatarChange={updateAvatar}
       {...nav}
     />
   }

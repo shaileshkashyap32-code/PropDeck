@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { CSSProperties } from 'react'
+import Avatar from './Avatar'
 
 // ─── Account dropdown ───────────────────────────────────────────────────────
 // One home for every per-user destination, so the top bar stays down to a logo
@@ -23,7 +24,7 @@ export interface MenuItem {
 }
 
 interface Props {
-  user: { name?: string; role?: string }
+  user: { name?: string; role?: string; avatar_url?: string | null }
   /** Groups of items; rendered with a separator between each group. */
   groups: MenuItem[][]
 }
@@ -93,58 +94,42 @@ export default function UserMenu({ user, groups }: Props) {
     }
   }, [open])
 
-  const initial = user.name?.charAt(0).toUpperCase() ?? '?'
-
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Account menu"
+        title={`${user.name} — account menu`}
+        aria-label={`${user.name} — account menu`}
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 6,
           background: open ? 'var(--border)' : 'transparent',
           border: '1px solid rgba(165,180,252,0.25)',
           borderRadius: 999,
-          padding: '4px 10px 4px 4px',
+          padding: '3px 8px 3px 3px',
           cursor: 'pointer',
           color: 'var(--text-muted)',
           fontSize: 13,
         }}
       >
-        <span
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg,#4F46E5,#9333EA)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 700,
-            fontSize: 12,
-            color: '#FFFFFF',
-            flexShrink: 0,
-          }}
-        >
-          {initial}
-        </span>
-        <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {user.name}
-        </span>
+        {/* Name lives in the dropdown header below, not on the trigger. */}
+        <Avatar name={user.name} photo={user.avatar_url} size={28} />
         <span style={{ fontSize: 9, opacity: 0.7 }}>▼</span>
       </button>
 
       {open && (
         <div role="menu" style={PANEL}>
           {/* Who you're signed in as — the menu is otherwise all verbs. */}
-          <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid rgba(129,140,248,0.14)', marginBottom: 6 }}>
-            <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{user.name}</div>
-            <div style={{ color: 'var(--accent)', fontSize: 11, marginTop: 2 }}>
-              {user.role === 'admin' ? '⚙ Admin' : '👤 Salesperson'}
+          <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid rgba(129,140,248,0.14)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Avatar name={user.name} photo={user.avatar_url} size={36} />
+            <div>
+              <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{user.name}</div>
+              <div style={{ color: 'var(--accent)', fontSize: 11, marginTop: 2 }}>
+                {user.role === 'admin' ? '⚙ Admin' : '👤 Salesperson'}
+              </div>
             </div>
           </div>
 

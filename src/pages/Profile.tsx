@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase, getSession } from '../lib/supabase';
 import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 import ThemeToggle from '../components/ThemeToggle';
+import Avatar from '../components/Avatar';
 import { formatPrice } from '../lib/format';
+import { downscaleImage } from '../lib/image';
 
 interface Salesperson {
   id: string;
   name: string;
   mobile_number: string;
   role: string;
+  avatar_url?: string | null;
 }
 
 interface Project {
@@ -31,11 +34,16 @@ interface ProfileProps {
   onGoProfile: () => void;
   onGoTemplates: () => void;
   onLogout: () => void;
+  /** Propagates a new/removed photo up so every top bar updates live. */
+  onAvatarChange: (url: string | null) => void;
 }
 
 type SaveStatus = 'saved' | 'error' | null;
 
-export default function Profile({ user, section, onBack, ...nav }: ProfileProps) {
+export default function Profile({ user, section, onBack, onAvatarChange, ...nav }: ProfileProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const [projects, setProjects]     = useState<Project[]>([]);
   const [templates, setTemplates]   = useState<Record<string, string>>({});
   const [saving, setSaving]         = useState<Record<string, boolean>>({});
@@ -81,6 +89,36 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
     }
   }
 
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setPhotoError('Please choose an image file.'); return; }
+    setPhotoError('');
+    setPhotoBusy(true);
+    try {
+      // Shrink to a small square data URL so the stored string stays a few KB.
+      const dataUrl = await downscaleImage(file, 256);
+      const { error } = await supabase.rpc('set_my_avatar', { p_token: getSession(), p_avatar: dataUrl });
+      if (error) throw error;
+      onAvatarChange(dataUrl);
+    } catch (err: any) {
+      setPhotoError(err?.message?.includes('function')
+        ? 'Photo upload isn’t enabled yet — run the avatars migration.'
+        : 'Could not save photo. Please try again.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function removePhoto() {
+    setPhotoBusy(true); setPhotoError('');
+    const { error } = await supabase.rpc('set_my_avatar', { p_token: getSession(), p_avatar: null });
+    setPhotoBusy(false);
+    if (error) { setPhotoError('Could not remove photo.'); return; }
+    onAvatarChange(null);
+  }
+
   const topBar = (
     <nav className="h-14 flex items-center justify-between px-4"
       style={{ background: 'var(--bg-bar)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
@@ -116,12 +154,18 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
         {section === 'profile' && (
         <div className="rounded-2xl p-5 flex items-center gap-4"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          {/* On the brand gradient — stays white in both themes. */}
-          <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #4F46E5, #9333EA)' }}>
-            {user.name.charAt(0).toUpperCase()}
+          <div className="relative flex-shrink-0">
+            <Avatar name={user.name} photo={user.avatar_url} size={64} />
+            {/* Tap the badge or the avatar to pick a new photo. */}
+            <button onClick={() => fileRef.current?.click()} disabled={photoBusy}
+              title="Change photo" aria-label="Change photo"
+              className="absolute -bottom-1 -right-1 rounded-full flex items-center justify-center"
+              style={{ width: 24, height: 24, background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: '2px solid var(--bg-card)', color: '#FFFFFF', fontSize: 11, cursor: photoBusy ? 'default' : 'pointer' }}>
+              {photoBusy ? '…' : '✎'}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" onChange={onPickPhoto} style={{ display: 'none' }} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-[color:var(--text)] font-bold text-lg leading-tight">{user.name}</h2>
             <p className="text-[color:var(--text-muted)] text-sm">{user.mobile_number}</p>
             <span className="inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium"
@@ -131,18 +175,21 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
               }}>
               {user.role === 'admin' ? '⚙ Admin' : '👤 Salesperson'}
             </span>
+            <div className="mt-2 flex items-center gap-3 text-xs">
+              <button onClick={() => fileRef.current?.click()} disabled={photoBusy}
+                style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: photoBusy ? 'default' : 'pointer', padding: 0 }}>
+                {photoBusy ? 'Saving…' : user.avatar_url ? 'Change photo' : 'Upload photo'}
+              </button>
+              {user.avatar_url && !photoBusy && (
+                <button onClick={removePhoto}
+                  style={{ color: '#F87171', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  Remove
+                </button>
+              )}
+            </div>
+            {photoError && <p className="text-xs mt-1" style={{ color: '#F87171' }}>{photoError}</p>}
           </div>
         </div>
-        )}
-
-        {/* Editing your name / photo isn't built yet — see the note in the
-            handover rather than pretending the fields exist. */}
-        {section === 'profile' && (
-          <div className="rounded-2xl p-5 text-sm"
-            style={{ background: 'var(--bg-card)', border: '1px dashed var(--border-strong)', color: 'var(--text-dim)' }}>
-            Editing your photo and details is coming soon. For now, ask an admin to update
-            your name or mobile number from the Team screen.
-          </div>
         )}
 
         {/* WhatsApp Templates */}
