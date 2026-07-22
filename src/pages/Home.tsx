@@ -131,6 +131,12 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
   const toggleLoc = (l: string) => setSelLoc((p) => (p.includes(l) ? p.filter((x) => x !== l) : [...p, l]));
   const toggleBand = (label: string) => setBands((p) => (p.includes(label) ? p.filter((x) => x !== label) : [...p, label]));
 
+  // The zone row only makes sense once locations actually carry zones (i.e.
+  // after the zones migration is applied). Until then, hide it and fall back to
+  // the flat area list, so a half-set-up DB never shows a zone that filters to
+  // nothing. It switches on by itself the moment any area is zoned.
+  const zonesAvailable = locations.some((l) => l.zones.length > 0);
+
   // Areas belonging to the picked zones (all areas when no zone is picked).
   // The area dropdown and popular chips are scoped to this so a salesperson who
   // said "North" only ever sees North's areas.
@@ -312,13 +318,15 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
               No zone = All Bangalore, the area list spans every zone. */}
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>Location</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-              {ZONES.map((z) => (
-                <button key={z} onClick={() => toggleZone(z)} style={chipStyle(selZones.includes(z))}>
-                  {z}
-                </button>
-              ))}
-            </div>
+            {zonesAvailable && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                {ZONES.map((z) => (
+                  <button key={z} onClick={() => toggleZone(z)} style={chipStyle(selZones.includes(z))}>
+                    {z}
+                  </button>
+                ))}
+              </div>
+            )}
             <MultiSelect
               options={areasInScope}
               selected={selLoc}
