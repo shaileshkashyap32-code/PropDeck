@@ -6,6 +6,7 @@ import BrandLogo from '../components/BrandLogo'
 import GlobalSearch from '../components/GlobalSearch'
 import ThemeToggle from '../components/ThemeToggle'
 import { ZONES } from '../lib/zones'
+import { formatPrice } from '../lib/format'
 
 interface Props {
   user: any
@@ -73,11 +74,6 @@ const card: React.CSSProperties = {
   borderRadius: 12, padding: 20, marginBottom: 20
 }
 
-function fmt(n: number) {
-  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`
-  if (n >= 100000) return `₹${(n / 100000).toFixed(0)}L`
-  return `₹${n}`
-}
 
 export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [section, setSection] = useState<'projects' | 'add' | 'locations' | 'team'>('projects')
@@ -274,8 +270,8 @@ ${quickFillText}`
     const unitLines = configs
       .filter(u => u.type)
       .map(u => {
-        const pMin = u.price_min ? fmt(Number(u.price_min)) : '?'
-        const pMax = u.price_max ? `–${fmt(Number(u.price_max))}` : ''
+        const pMin = u.price_min ? formatPrice(Number(u.price_min)) : '?'
+        const pMax = u.price_max ? `–${formatPrice(Number(u.price_max))}` : ''
         const sba = u.sba_min ? `, SBA ${u.sba_min}${u.sba_max && u.sba_max !== u.sba_min ? `–${u.sba_max}` : ''} sqft` : ''
         return `  ${u.type}: ${pMin}${pMax}${sba}`
       })
@@ -292,7 +288,7 @@ ${quickFillText}`
     const entryConfig = validConfigs.length > 0
       ? validConfigs.reduce((min, u) => Number(u.price_min) < Number(min.price_min) ? u : min, validConfigs[0])
       : null
-    const entryPrice = entryConfig ? fmt(Number(entryConfig.price_min)) : 'entry price'
+    const entryPrice = entryConfig ? formatPrice(Number(entryConfig.price_min)) : 'entry price'
     const entryType = entryConfig ? entryConfig.type : 'entry unit'
 
     // A second, distinct unit type (if one exists) for the investor tab's second yield point
@@ -414,7 +410,7 @@ Return ONLY valid JSON, no markdown fences, no citation numbers inside text. Fol
     setGeneratingScript(true)
     const usps = [form.usp1, form.usp2, form.usp3, form.usp4, form.usp5].filter(Boolean)
     const unitSummary = unitConfigs.filter(u => u.type && u.price_min)
-      .map(u => `${u.type} from ${fmt(Number(u.price_min))}`).join(', ')
+      .map(u => `${u.type} from ${formatPrice(Number(u.price_min))}`).join(', ')
     const prompt = `Expert real estate sales trainer in Bangalore. Write a confident, conversational 4-5 line pitch script (under 80 words) for a salesperson on a live call. First person. Specific numbers. Soft CTA at end.
 
 Project: ${form.name} | Developer: ${form.developer} | Location: ${form.location}
@@ -763,7 +759,7 @@ Write ONLY the pitch script. No labels or preamble.`
                               <td style={{ padding: '13px 16px' }}>
                                 <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: p.status === 'Ready to Move' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: p.status === 'Ready to Move' ? '#10B981' : '#F59E0B' }}>{p.status}</span>
                               </td>
-                              <td style={{ padding: '13px 16px', color: 'var(--text-muted)' }}>{fmt(p.price_min)} – {fmt(p.price_max)}</td>
+                              <td style={{ padding: '13px 16px', color: 'var(--text-muted)' }}>{formatPrice(p.price_min)} – {formatPrice(p.price_max)}</td>
                               <td style={{ padding: '13px 16px' }}>
                                 <div style={{ display: 'flex', gap: 8 }}>
                                   <button onClick={() => startEdit(p)} style={{ background: 'var(--border-strong)', border: 'none', borderRadius: 6, padding: '5px 14px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>Edit</button>
@@ -879,7 +875,7 @@ Write ONLY the pitch script. No labels or preamble.`
                     </div>
                     {u.price_min && (
                       <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 6 }}>
-                        → {u.type || 'Unit'}: {fmt(Number(u.price_min))}{u.price_max && u.price_max !== u.price_min ? `–${fmt(Number(u.price_max))}` : ''}
+                        → {u.type || 'Unit'}: {formatPrice(Number(u.price_min))}{u.price_max && u.price_max !== u.price_min ? `–${formatPrice(Number(u.price_max))}` : ''}
                         {u.sba_min ? ` · ${u.sba_min}${u.sba_max && u.sba_max !== u.sba_min ? `–${u.sba_max}` : ''} sqft SBA` : ''}
                       </div>
                     )}

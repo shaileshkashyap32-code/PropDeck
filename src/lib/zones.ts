@@ -9,12 +9,6 @@
 
 export const ZONES = ['North', 'South', 'East', 'West', 'Central'] as const
 
-export type Zone = (typeof ZONES)[number]
-
-export function isZone(v: string): v is Zone {
-  return (ZONES as readonly string[]).includes(v)
-}
-
 /** "North" → "North Bangalore" for display; the short name is what's stored. */
 export function zoneLabel(z: string): string {
   return `${z} Bangalore`

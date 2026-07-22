@@ -3,6 +3,7 @@ import { supabase, getSession } from '../lib/supabase';
 import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 import ThemeToggle from '../components/ThemeToggle';
+import { formatPrice } from '../lib/format';
 
 interface Salesperson {
   id: string;
@@ -78,11 +79,6 @@ export default function Profile({ user, section, onBack, ...nav }: ProfileProps)
       setSaveStatus(prev => ({ ...prev, [projectId]: 'saved' }));
       setTimeout(() => setSaveStatus(prev => ({ ...prev, [projectId]: null })), 2500);
     }
-  }
-
-  function formatPrice(price: number): string {
-    if (price >= 10_000_000) return `₹${(price / 10_000_000).toFixed(1)}Cr`;
-    return `₹${(price / 100_000).toFixed(0)}L`;
   }
 
   const topBar = (

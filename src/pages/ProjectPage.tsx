@@ -4,6 +4,7 @@ import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 import BrandLogo from '../components/BrandLogo';
 import GlobalSearch from '../components/GlobalSearch';
+import { formatPrice } from '../lib/format';
 import ThemeToggle from '../components/ThemeToggle';
 
 interface Landmark {
@@ -57,11 +58,6 @@ interface Props {
 
 type PersonaKey = 'investor' | 'upgrade_buyer' | 'end_user' | 'first_time_buyer' | 'nri';
 
-function fmt(n: number) {
-  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
-  if (n >= 100000) return `₹${(n / 100000).toFixed(0)}L`;
-  return `₹${n}`;
-}
 
 // Renders "text **bold** text" as real bold spans instead of showing raw asterisks.
 // Only the wrapped portion is bolded/highlighted — everything else stays plain.
@@ -110,7 +106,7 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
     if (!project || phone.length !== 10) return;
     const msg = encodeURIComponent(
       `Hi! Here are details for *${project.name}* by ${project.developer}\n\n` +
-        `📍 ${project.location}\n💰 ${fmt(project.price_min)} – ${fmt(project.price_max)}\n` +
+        `📍 ${project.location}\n💰 ${formatPrice(project.price_min)} – ${formatPrice(project.price_max)}\n` +
         `🏠 ${project.bhk_types?.join(', ')}\n📅 Possession: ${project.possession_date}\n\n– ${user.name}`
     );
     window.open(`https://wa.me/91${phone}?text=${msg}`, '_blank');
@@ -209,7 +205,7 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
           {/* ── Stats strip (CHANGE 1: Carpet Area → Super Built-Up Area) ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 24 }}>
             {[
-              ['Price', `${fmt(project.price_min)} – ${fmt(project.price_max)}`],
+              ['Price', `${formatPrice(project.price_min)} – ${formatPrice(project.price_max)}`],
               ['BHK', project.bhk_types?.join(', ') || '—'],
               ['Super Built-Up Area', getSbaLabel()],
               ['Possession', project.possession_date || '—'],
@@ -263,7 +259,7 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
                               : '—'}
                           </td>
                           <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
-                            {fmt(u.price_min)}{u.price_max && u.price_max !== u.price_min ? ` – ${fmt(u.price_max)}` : ''}
+                            {formatPrice(u.price_min)}{u.price_max && u.price_max !== u.price_min ? ` – ${formatPrice(u.price_max)}` : ''}
                           </td>
                         </tr>
                       ))}
@@ -388,7 +384,7 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
                     <div style={{ fontSize: 10, color: '#6366F1', marginBottom: 3 }}>{s.developer}</div>
                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{s.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>📍 {s.location}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>{fmt(s.price_min)} – {fmt(s.price_max)}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>{formatPrice(s.price_min)} – {formatPrice(s.price_max)}</div>
                   </div>
                 ))}
               </div>
@@ -399,7 +395,7 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
         {/* ── RIGHT SIDEBAR ── */}
         <div style={{ position: 'sticky', top: 24 }}>
           <div style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 18, marginBottom: 14 }}>
-            <div style={{ fontSize: 24, fontWeight: 700, background: 'linear-gradient(90deg,var(--brand-from),var(--brand-to))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 4 }}>{fmt(project.price_min)}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, background: 'linear-gradient(90deg,var(--brand-from),var(--brand-to))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 4 }}>{formatPrice(project.price_min)}</div>
             <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 14 }}>Starting price onwards</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {project.bhk_types?.map(b => (

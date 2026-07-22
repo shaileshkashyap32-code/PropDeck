@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatPrice } from '../lib/format'
 
 // ─── Global search ──────────────────────────────────────────────────────────
 // Lives in the top bar on every screen. Matches projects on name, developer or
@@ -58,11 +59,6 @@ interface Props {
 }
 
 const MAX_HITS = 8
-
-function fmt(n: number) {
-  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`
-  return `₹${(n / 100000).toFixed(0)}L`
-}
 
 export default function GlobalSearch({ onSelectProject, onQueryChange, value, projects }: Props) {
   const [items, setItems] = useState<SearchHit[]>(projects ?? [])
@@ -196,7 +192,7 @@ export default function GlobalSearch({ onSelectProject, onQueryChange, value, pr
               >
                 <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{hit.name}</div>
                 <div style={{ color: 'var(--accent)', fontSize: 11, marginTop: 2 }}>
-                  {hit.developer} · 📍{hit.location} · {fmt(hit.price_min)}–{fmt(hit.price_max)}
+                  {hit.developer} · 📍{hit.location} · {formatPrice(hit.price_min)}–{formatPrice(hit.price_max)}
                 </div>
               </button>
             ))
