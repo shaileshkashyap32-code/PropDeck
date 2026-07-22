@@ -28,7 +28,17 @@
   --text-dim: #94A3B8;
   --text-faint: #64748B;
   --text-fainter: #475569;
+  /* Accent text/icons. In dark these are the light-purple periwinkles that
+     read on a near-black surface; light mode needs darker indigos to survive
+     on white. */
+  --accent: #818CF8;
+  --accent-bright: #C084FC;
+  --on-tint: #C7D2FE;       /* text sitting on a low-alpha indigo chip */
+  /* Gradient-clipped text (wordmark, hero price). */
+  --brand-from: #818CF8;
+  --brand-to: #A78BFA;
   --shadow: rgba(0,0,0,0.5);
+  --card-shadow: none;
   --scroll-track: #1E1B4B;
   --scroll-thumb: #4F46E5;
   color-scheme: dark;
@@ -50,7 +60,15 @@
   --text-dim: #475569;
   --text-faint: #64748B;
   --text-fainter: #94A3B8;
+  --accent: #4F46E5;
+  --accent-bright: #7C3AED;
+  --on-tint: #3730A3;
+  --brand-from: #4F46E5;
+  --brand-to: #7C3AED;
   --shadow: rgba(15,23,42,0.18);
+  /* Cards are white on a near-white page, so give them a soft lift the dark
+     theme doesn't need. */
+  --card-shadow: 0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04);
   --scroll-track: #E2E8F0;
   --scroll-thumb: #818CF8;
   color-scheme: light;

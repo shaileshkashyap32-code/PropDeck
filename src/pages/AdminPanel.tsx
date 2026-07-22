@@ -663,9 +663,15 @@ Write ONLY the pitch script. No labels or preamble.`
       topBar={
         <nav style={{ background: 'var(--bg-bar)', borderBottom: '1px solid var(--border)', padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
         <BrandLogo onClick={nav.onGoHome} compact={isMobile} badge="Admin" />
+        {/* Spacer pushes search and controls to the right. */}
+        <div style={{ flex: 1 }} />
         {/* The panel is desktop-first; on mobile the bar has no room for search. */}
-        {!isMobile && <GlobalSearch onSelectProject={onViewProject} />}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+        {!isMobile && (
+          <div style={{ flex: '0 1 440px', minWidth: 0, display: 'flex' }}>
+            <GlobalSearch onSelectProject={onViewProject} />
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <ThemeToggle />
           {/* Already in the panel, so the menu drops its Admin Panel entry here. */}
           <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoAdmin: undefined })} />
@@ -765,7 +771,7 @@ Write ONLY the pitch script. No labels or preamble.`
 
               {/* 0️⃣ QUICK FILL */}
               <div style={{ ...card, borderColor: 'rgba(139,92,246,0.5)', background: 'rgba(88,28,219,0.1)' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#C084FC', marginBottom: 4 }}>🪄 Quick Fill with AI</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-bright)', marginBottom: 4 }}>🪄 Quick Fill with AI</div>
                 <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12 }}>
                   Paste WhatsApp forwards, website copy, or any project text — AI extracts and fills all fields below automatically.
                 </div>
@@ -857,7 +863,7 @@ Write ONLY the pitch script. No labels or preamble.`
                       </div>
                     </div>
                     {u.price_min && (
-                      <div style={{ fontSize: 11, color: '#818CF8', marginTop: 6 }}>
+                      <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 6 }}>
                         → {u.type || 'Unit'}: {fmt(Number(u.price_min))}{u.price_max && u.price_max !== u.price_min ? `–${fmt(Number(u.price_max))}` : ''}
                         {u.sba_min ? ` · ${u.sba_min}${u.sba_max && u.sba_max !== u.sba_min ? `–${u.sba_max}` : ''} sqft SBA` : ''}
                       </div>
@@ -974,7 +980,7 @@ Write ONLY the pitch script. No labels or preamble.`
                   Cancel
                 </button>
                 {generatingPersonas && (
-                  <span style={{ fontSize: 12, color: '#818CF8' }}>
+                  <span style={{ fontSize: 12, color: 'var(--accent)' }}>
                     Generating 4 AI pitches: 💰 Investor · 🏠 Family · 🔑 First-time · 🌍 NRI…
                   </span>
                 )}
@@ -1082,7 +1088,7 @@ Write ONLY the pitch script. No labels or preamble.`
                           {m.email
                             ? <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>{m.email}</div>
                             : <div style={{ fontSize: 12, color: '#F59E0B', marginTop: 2 }}>⚠ No email — Forgot Password won't work until this is added</div>}
-                          <span style={{ background: m.role === 'admin' ? 'rgba(147,51,234,0.25)' : 'var(--border)', color: m.role === 'admin' ? '#C084FC' : 'var(--text-muted)', fontSize: 11, padding: '2px 9px', borderRadius: 10, marginTop: 4, display: 'inline-block' }}>{m.role}</span>
+                          <span style={{ background: m.role === 'admin' ? 'rgba(147,51,234,0.25)' : 'var(--border)', color: m.role === 'admin' ? 'var(--accent-bright)' : 'var(--text-muted)', fontSize: 11, padding: '2px 9px', borderRadius: 10, marginTop: 4, display: 'inline-block' }}>{m.role}</span>
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button onClick={() => startEditTeam(m)} style={{ background: 'var(--border-strong)', border: 'none', borderRadius: 5, padding: '6px 14px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>Edit</button>

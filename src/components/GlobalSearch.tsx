@@ -122,7 +122,7 @@ export default function GlobalSearch({ onSelectProject, onQueryChange, value, pr
   return (
     <div ref={wrapRef} style={{ position: 'relative', flex: 1, maxWidth: 440 }}>
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-        <span style={{ position: 'absolute', left: 12, fontSize: 12, color: '#818CF8', pointerEvents: 'none' }}>🔍</span>
+        <span style={{ position: 'absolute', left: 12, fontSize: 12, color: 'var(--accent)', pointerEvents: 'none' }}>🔍</span>
         <input
           value={q}
           onChange={(e) => update(e.target.value)}
@@ -146,7 +146,7 @@ export default function GlobalSearch({ onSelectProject, onQueryChange, value, pr
           <button
             onClick={() => { update(''); setOpen(false) }}
             aria-label="Clear search"
-            style={{ position: 'absolute', right: 8, background: 'none', border: 'none', color: '#818CF8', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
+            style={{ position: 'absolute', right: 8, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
           >
             ×
           </button>
@@ -195,7 +195,7 @@ export default function GlobalSearch({ onSelectProject, onQueryChange, value, pr
                 }}
               >
                 <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{hit.name}</div>
-                <div style={{ color: '#818CF8', fontSize: 11, marginTop: 2 }}>
+                <div style={{ color: 'var(--accent)', fontSize: 11, marginTop: 2 }}>
                   {hit.developer} · 📍{hit.location} · {fmt(hit.price_min)}–{fmt(hit.price_max)}
                 </div>
               </button>

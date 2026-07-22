@@ -194,13 +194,14 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
           {/* Logo sits in its own column, its divider continuing the sidebar
               border directly below. */}
           <BrandLogo onClick={nav.onGoHome} zoneWidth={SIDEBAR_WIDTH} />
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 16, padding: '0 24px', minWidth: 0 }}>
-            <GlobalSearch projects={projects} value={search} onQueryChange={setSearch} onSelectProject={onViewProject} />
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <ThemeToggle />
-              {/* Already home, so no Home entry in the menu here. */}
-              <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoHome: undefined })} />
+          {/* Search sits on the right, just left of the account controls. */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, padding: '0 24px', minWidth: 0, justifyContent: 'flex-end' }}>
+            <div style={{ flex: '0 1 440px', minWidth: 0, display: 'flex' }}>
+              <GlobalSearch projects={projects} value={search} onQueryChange={setSearch} onSelectProject={onViewProject} />
             </div>
+            <ThemeToggle />
+            {/* Already home, so no Home entry in the menu here. */}
+            <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoHome: undefined })} />
           </div>
         </nav>
       }
@@ -221,7 +222,7 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
                   key={f.key}
                   onClick={f.remove}
                   title={`Remove ${f.label}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%', padding: '4px 8px 4px 10px', borderRadius: 20, fontSize: 12, cursor: 'pointer', border: '1px solid #6366F1', background: 'rgba(99,102,241,0.3)', color: '#C7D2FE' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%', padding: '4px 8px 4px 10px', borderRadius: 20, fontSize: 12, cursor: 'pointer', border: '1px solid #6366F1', background: 'rgba(99,102,241,0.3)', color: 'var(--on-tint)' }}
                 >
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label}</span>
                   <span aria-hidden style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1 }}>×</span>
@@ -346,7 +347,7 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
 function Card({ project: p, onView }: { project: Project; onView: (id: string) => void }) {
   const isPlot = p.bhk_types?.includes('Plot');
   return (
-    <div onClick={() => onView(p.id)} style={{ background: 'var(--bg-raised)', borderRadius: 14, border: `1px solid ${isPlot ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`, overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.2s' }}
+    <div onClick={() => onView(p.id)} style={{ background: 'var(--bg-raised)', borderRadius: 14, border: `1px solid ${isPlot ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`, boxShadow: 'var(--card-shadow)', overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.2s' }}
       onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-3px)')}
       onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}>
       <div style={{ height: 150, background: isPlot ? 'linear-gradient(135deg,rgba(16,185,129,0.2),rgba(5,150,105,0.3))' : 'linear-gradient(135deg,var(--border-strong),rgba(147,51,234,0.3))', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>

@@ -182,7 +182,7 @@ export default function Login({ onLogin, googleError }: Props) {
             >
               Welcome back
             </h1>
-            <p style={{ color: '#818CF8', fontSize: 13, marginBottom: 28 }}>
+            <p style={{ color: 'var(--accent)', fontSize: 13, marginBottom: 28 }}>
               Log in to your workspace
             </p>
 
@@ -260,7 +260,7 @@ export default function Login({ onLogin, googleError }: Props) {
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#818CF8',
+                      color: 'var(--accent)',
                       fontSize: 12,
                       cursor: 'pointer',
                       padding: 0,
@@ -423,7 +423,7 @@ export default function Login({ onLogin, googleError }: Props) {
             >
               Reset password
             </h1>
-            <p style={{ color: '#818CF8', fontSize: 13, marginBottom: 28 }}>
+            <p style={{ color: 'var(--accent)', fontSize: 13, marginBottom: 28 }}>
               Enter your mobile number or email and we'll send a reset link.
             </p>
 
@@ -525,7 +525,7 @@ export default function Login({ onLogin, googleError }: Props) {
                 marginTop: 16,
                 background: 'none',
                 border: 'none',
-                color: '#818CF8',
+                color: 'var(--accent)',
                 fontSize: 13,
                 cursor: 'pointer',
                 width: '100%',

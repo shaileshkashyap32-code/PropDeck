@@ -77,12 +77,12 @@ export default function MultiSelect({ options, selected, onToggle, onClear, plac
             role="button"
             aria-label={clearLabel}
             onClick={(e) => { e.stopPropagation(); onClear() }}
-            style={{ color: '#818CF8', fontSize: 14, lineHeight: 1 }}
+            style={{ color: 'var(--accent)', fontSize: 14, lineHeight: 1 }}
           >
             ×
           </span>
         )}
-        <span style={{ fontSize: 9, color: '#818CF8' }}>▼</span>
+        <span style={{ fontSize: 9, color: 'var(--accent)' }}>▼</span>
       </button>
 
       {open && (
@@ -121,7 +121,7 @@ export default function MultiSelect({ options, selected, onToggle, onClear, plac
                   borderRadius: 6,
                   border: 'none',
                   background: on ? 'rgba(99,102,241,0.22)' : 'transparent',
-                  color: on ? '#C7D2FE' : 'var(--text-dim)',
+                  color: on ? 'var(--on-tint)' : 'var(--text-dim)',
                   fontSize: 13,
                   cursor: 'pointer',
                 }}

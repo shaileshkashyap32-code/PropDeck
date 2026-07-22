@@ -23,12 +23,12 @@ export default function BrandLogo({ onClick, zoneWidth, compact, badge }: Props)
         P
       </div>
       {!compact && (
-        <span style={{ fontWeight: 700, fontSize: 17, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+        <span style={{ fontWeight: 700, fontSize: 17, background: 'linear-gradient(90deg,var(--brand-from),var(--brand-to))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           PropDeck
         </span>
       )}
       {badge && (
-        <span style={{ fontSize: 11, background: 'rgba(147,51,234,0.3)', color: '#C084FC', padding: '2px 8px', borderRadius: 10 }}>
+        <span style={{ fontSize: 11, background: 'rgba(147,51,234,0.3)', color: 'var(--accent-bright)', padding: '2px 8px', borderRadius: 10 }}>
           {badge}
         </span>
       )}

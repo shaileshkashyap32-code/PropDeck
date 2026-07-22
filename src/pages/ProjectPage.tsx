@@ -70,7 +70,7 @@ function renderBold(text: string) {
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return (
-        <strong key={i} style={{ color: '#C4B5FD', fontWeight: 700 }}>
+        <strong key={i} style={{ color: 'var(--accent-bright)', fontWeight: 700 }}>
           {part.slice(2, -2)}
         </strong>
       );
@@ -163,8 +163,12 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
   const nav = (
     <nav style={{ background: 'var(--bg-bar)', borderBottom: '1px solid var(--border)', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
       <BrandLogo onClick={menuNav.onGoHome} />
-      <GlobalSearch onSelectProject={onViewProject} />
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginLeft: 'auto' }}>
+      {/* Spacer pushes search and controls to the right. */}
+      <div style={{ flex: 1 }} />
+      <div style={{ flex: '0 1 440px', minWidth: 0, display: 'flex' }}>
+        <GlobalSearch onSelectProject={onViewProject} />
+      </div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <button onClick={onBack} style={{ background: 'var(--border)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 7, padding: '6px 16px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>← Back</button>
         <ThemeToggle />
         <UserMenu user={user} groups={buildAccountMenu({ ...menuNav, isAdmin: user.role === 'admin' })} />
@@ -395,7 +399,7 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
         {/* ── RIGHT SIDEBAR ── */}
         <div style={{ position: 'sticky', top: 24 }}>
           <div style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 18, marginBottom: 14 }}>
-            <div style={{ fontSize: 24, fontWeight: 700, background: 'linear-gradient(90deg,#818CF8,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 4 }}>{fmt(project.price_min)}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, background: 'linear-gradient(90deg,var(--brand-from),var(--brand-to))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 4 }}>{fmt(project.price_min)}</div>
             <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 14 }}>Starting price onwards</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {project.bhk_types?.map(b => (

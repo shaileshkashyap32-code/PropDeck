@@ -165,7 +165,7 @@ export default function ResetPassword({ token, onDone }: Props) {
       <h1 style={{ color: 'var(--text)', fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
         Set a new password
       </h1>
-      <p style={{ color: '#818CF8', fontSize: 13, marginBottom: 28 }}>
+      <p style={{ color: 'var(--accent)', fontSize: 13, marginBottom: 28 }}>
         Choose something you'll remember.
       </p>
 

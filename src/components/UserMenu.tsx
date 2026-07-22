@@ -143,7 +143,7 @@ export default function UserMenu({ user, groups }: Props) {
           {/* Who you're signed in as — the menu is otherwise all verbs. */}
           <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid rgba(129,140,248,0.14)', marginBottom: 6 }}>
             <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{user.name}</div>
-            <div style={{ color: '#818CF8', fontSize: 11, marginTop: 2 }}>
+            <div style={{ color: 'var(--accent)', fontSize: 11, marginTop: 2 }}>
               {user.role === 'admin' ? '⚙ Admin' : '👤 Salesperson'}
             </div>
           </div>
