@@ -11,7 +11,10 @@ import { useSyncExternalStore } from 'react'
 
 export type Theme = 'dark' | 'light'
 
-const KEY = 'pd_theme'
+// Bumped from 'pd_theme' so any earlier saved preference is dropped and everyone
+// starts from the dark default again. Light is still available via the toggle,
+// and that choice re-persists under this key.
+const KEY = 'pd_theme_v2'
 
 function read(): Theme {
   try {
@@ -42,6 +45,17 @@ export function setTheme(t: Theme) {
 
 export function toggleTheme() {
   setTheme(current === 'dark' ? 'light' : 'dark')
+}
+
+// The login screen is always dark (the brand entry point), regardless of the
+// saved preference. App forces this while logged out and restores the saved
+// theme on login — without changing `current`, so the preference survives.
+export function forceDark() {
+  apply('dark')
+}
+
+export function applyCurrentTheme() {
+  apply(current)
 }
 
 export function useTheme(): Theme {

@@ -6,6 +6,7 @@ import AdminPanel from './pages/AdminPanel'
 import Profile from './pages/Profile'
 import ResetPassword from './pages/ResetPassword'
 import { supabase, saveSession, getSession, clearSession } from './lib/supabase'
+import { forceDark, applyCurrentTheme } from './lib/theme'
 
 type View = 'home' | 'project' | 'admin' | 'profile' | 'templates'
 
@@ -153,6 +154,13 @@ function App() {
     if (!user) return
     sessionStorage.setItem(VIEW_KEY, JSON.stringify({ view, projectId }))
   }, [user, view, projectId])
+
+  // Login (and the loading/reset screens) are always dark — force it while
+  // logged out and restore the saved theme once a user is in.
+  useEffect(() => {
+    if (user) applyCurrentTheme()
+    else forceDark()
+  }, [user])
 
   // The login RPCs don't return the avatar, so pull it in once after login and
   // merge it onto `user` — that's what feeds the photo into every top bar.
