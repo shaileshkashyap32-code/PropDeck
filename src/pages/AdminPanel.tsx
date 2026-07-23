@@ -36,6 +36,7 @@ interface UnitConfig {
   price_max: string
   sba_min: string
   sba_max: string
+  units_left: string   // '' = availability not tracked; '0' = sold out
 }
 
 interface FormData {
@@ -60,7 +61,7 @@ const EMPTY: FormData = {
   lm4_name: '', lm4_dist: '', lm4_type: 'IT Park',
 }
 
-const EMPTY_UNIT: UnitConfig = { type: '', price_min: '', price_max: '', sba_min: '', sba_max: '' }
+const EMPTY_UNIT: UnitConfig = { type: '', price_min: '', price_max: '', sba_min: '', sba_max: '', units_left: '' }
 const UNIT_TYPES = ['Studio','1BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Penthouse','Villa','Townhouse','Plot']
 const LM_TYPES = ['Metro','School','Hospital','IT Park','Mall','Airport','Highway','Other']
 
@@ -254,6 +255,7 @@ ${quickFillText}`
           price_max: String(u.price_max || ''),
           sba_min: String(u.sba_min || ''),
           sba_max: String(u.sba_max || ''),
+          units_left: u.units_left === 0 || u.units_left ? String(u.units_left) : '',
         })))
       }
       flash('✅ Fields filled! Review everything below, then click Publish.')
@@ -508,11 +510,12 @@ Write ONLY the pitch script. No labels or preamble.`
       setUnitConfigs(p.unit_configs.map((u: any) => ({
         type: u.type || '', price_min: String(u.price_min || ''),
         price_max: String(u.price_max || ''), sba_min: String(u.sba_min || ''), sba_max: String(u.sba_max || ''),
+        units_left: u.units_left === 0 || u.units_left ? String(u.units_left) : '',
       })))
     } else if (Array.isArray(p.bhk_types) && p.bhk_types.length > 0) {
       setUnitConfigs(p.bhk_types.map((type: string) => ({
         type, price_min: String(p.price_min || ''), price_max: String(p.price_max || ''),
-        sba_min: '', sba_max: '',
+        sba_min: '', sba_max: '', units_left: '',
       })))
     } else {
       setUnitConfigs([{ ...EMPTY_UNIT }])
@@ -544,6 +547,7 @@ Write ONLY the pitch script. No labels or preamble.`
       price_max: Number(u.price_max || u.price_min),
       sba_min: u.sba_min ? Number(u.sba_min) : null,
       sba_max: u.sba_max ? Number(u.sba_max) : null,
+      units_left: u.units_left.trim() === '' ? null : Number(u.units_left),
     }))
 
     const allPrices = unitConfigsData.flatMap(u => [u.price_min, u.price_max])
@@ -843,7 +847,7 @@ Write ONLY the pitch script. No labels or preamble.`
                 </div>
                 {unitConfigs.map((u, idx) => (
                   <div key={idx} style={{ background: 'var(--bg-inset)', border: '1px solid rgba(79,70,229,0.15)', borderRadius: 8, padding: 12, marginBottom: 10 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1.2fr 1fr 1fr 0.8fr 0.8fr 36px', gap: 8, alignItems: 'end' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1.2fr 1fr 1fr 0.8fr 0.8fr 0.7fr 36px', gap: 8, alignItems: 'end' }}>
                       <div>
                         <label style={lbl}>Unit Type *</label>
                         <select style={inp} value={u.type} onChange={e => updateUnit(idx, 'type', e.target.value)}>
@@ -867,6 +871,10 @@ Write ONLY the pitch script. No labels or preamble.`
                         <label style={lbl}>SBA Max (sqft)</label>
                         <input style={inp} type="number" value={u.sba_max} onChange={e => updateUnit(idx, 'sba_max', e.target.value)} placeholder="1200" />
                       </div>
+                      <div>
+                        <label style={lbl}>Units left</label>
+                        <input style={inp} type="number" min="0" value={u.units_left} onChange={e => updateUnit(idx, 'units_left', e.target.value)} placeholder="—" title="Leave blank if not tracking availability; 0 = sold out" />
+                      </div>
                       <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 1 }}>
                         {unitConfigs.length > 1 && (
                           <button onClick={() => removeUnit(idx)} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', borderRadius: 6, width: 32, height: 36, color: '#F87171', cursor: 'pointer', fontSize: 14 }}>✕</button>
@@ -877,6 +885,7 @@ Write ONLY the pitch script. No labels or preamble.`
                       <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 6 }}>
                         → {u.type || 'Unit'}: {formatPrice(Number(u.price_min))}{u.price_max && u.price_max !== u.price_min ? `–${formatPrice(Number(u.price_max))}` : ''}
                         {u.sba_min ? ` · ${u.sba_min}${u.sba_max && u.sba_max !== u.sba_min ? `–${u.sba_max}` : ''} sqft SBA` : ''}
+                        {u.units_left.trim() !== '' ? ` · ${Number(u.units_left) === 0 ? 'Sold out' : `${u.units_left} left`}` : ''}
                       </div>
                     )}
                   </div>

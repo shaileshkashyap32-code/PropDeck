@@ -19,6 +19,7 @@ interface UnitConfig {
   price_max: number;
   sba_min: number | null;
   sba_max: number | null;
+  units_left?: number | null;
 }
 
 interface Project {
@@ -78,6 +79,22 @@ function renderBold(text: string) {
 // Strips ** markers for clean plain-text copy (WhatsApp / clipboard)
 function stripBold(text: string) {
   return text.replace(/\*\*/g, '');
+}
+
+// Inventory pill for the unit table. null/undefined = not tracked (—);
+// 0 = sold out (red); low stock warns amber; otherwise green.
+function availabilityBadge(unitsLeft: number | null | undefined) {
+  if (unitsLeft == null) return <span style={{ color: 'var(--text-fainter)' }}>—</span>;
+  const soldOut = unitsLeft === 0;
+  const low = unitsLeft > 0 && unitsLeft <= 5;
+  const color = soldOut ? '#F87171' : low ? '#F59E0B' : '#10B981';
+  const bg = soldOut ? 'rgba(239,68,68,0.15)' : low ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.15)';
+  const label = soldOut ? 'Sold out' : `${unitsLeft} left`;
+  return (
+    <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600, color, background: bg }}>
+      {label}
+    </span>
+  );
 }
 
 export default function ProjectPage({ projectId, user, onBack, onViewProject, ...menuNav }: Props) {
@@ -239,18 +256,25 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
               ) : <div style={{ color: 'var(--text-faint)', fontSize: 14, marginBottom: 20 }}>No highlights added yet.</div>}
 
               {/* ── CHANGE 2: Unit table — per-type pricing + SBA ── */}
-              {getUnitRows().length > 0 && (
+              {getUnitRows().length > 0 && (() => {
+                const rows = getUnitRows();
+                // Only surface the column when the admin is actually tracking it.
+                const hasInventory = rows.some((u: UnitConfig) => u.units_left != null);
+                const headers = hasInventory
+                  ? ['Type', 'Super Built-Up Area (SBA)', 'Price Range', 'Availability']
+                  : ['Type', 'Super Built-Up Area (SBA)', 'Price Range'];
+                return (
                 <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ background: 'var(--border)' }}>
-                        {['Type', 'Super Built-Up Area (SBA)', 'Price Range'].map(h => (
+                        {headers.map(h => (
                           <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {getUnitRows().map((u, i) => (
+                      {rows.map((u: UnitConfig, i: number) => (
                         <tr key={i} style={{ borderTop: '1px solid rgba(79,70,229,0.15)' }}>
                           <td style={{ padding: '10px 14px', fontWeight: 500 }}>{u.type}</td>
                           <td style={{ padding: '10px 14px', color: 'var(--text-dim)' }}>
@@ -261,12 +285,16 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
                           <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
                             {formatPrice(u.price_min)}{u.price_max && u.price_max !== u.price_min ? ` – ${formatPrice(u.price_max)}` : ''}
                           </td>
+                          {hasInventory && (
+                            <td style={{ padding: '10px 14px' }}>{availabilityBadge(u.units_left)}</td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              )}
+                );
+              })()}
             </div>
           )}
 
