@@ -20,6 +20,12 @@ interface Project {
   possession_date: string;
   status: string;
   image_url: string | null;
+  unit_configs: UnitConfig[] | null;
+}
+interface UnitConfig {
+  type: string;
+  price_min: number;
+  price_max: number;
 }
 interface LocationRow {
   name: string;
@@ -160,8 +166,22 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
 
   // A project matches a budget window if its price range overlaps it at all —
   // a ₹96L–₹5.8Cr project belongs in "Under ₹1Cr" and in "₹4Cr+".
-  const overlaps = (p: Project, min: number, max: number) =>
-    p.price_max >= min && p.price_min <= (max >= PMAX ? Infinity : max);
+  // The per-configuration price rows. Falls back to treating each listed BHK as
+  // priced at the project's overall range when a project has no unit_configs, so
+  // filtering still works for older/simpler entries.
+  const unitsOf = (p: Project): UnitConfig[] =>
+    p.unit_configs && p.unit_configs.length
+      ? p.unit_configs
+      : (p.bhk_types ?? []).map((t) => ({ type: t, price_min: p.price_min, price_max: p.price_max }));
+
+  const squashType = (s: string) => s.replace(/\s+/g, '').toLowerCase();
+
+  // Budget windows currently in force: the selected preset bands, else the
+  // custom slider range, else none. Empty = no budget constraint.
+  const budgetWindows: [number, number][] =
+    bands.length > 0
+      ? BUDGET_PRESETS.filter((b) => bands.includes(b.label)).map((b) => [b.min, b.max] as [number, number])
+      : (bMin !== PMIN || bMax !== PMAX) ? [[bMin, bMax]] : [];
 
   // "Commonly used" locations are derived from the catalogue rather than
   // hardcoded, so a suggestion can never point at zero projects.
@@ -218,11 +238,17 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
   }
 
   const shown = projects.filter((p) => {
-    if (bands.length > 0) {
-      // Union: match any one of the selected bands.
-      if (!BUDGET_PRESETS.some((b) => bands.includes(b.label) && overlaps(p, b.min, b.max))) return false;
-    } else if (!overlaps(p, bMin, bMax)) {
-      return false;
+    // Budget and BHK are matched on the SAME configuration. "2BHK under ₹1Cr"
+    // must find a 2BHK that is itself under ₹1Cr — not a project that merely
+    // has a 2BHK somewhere and, separately, some other unit under ₹1Cr.
+    if (selType.length > 0 || budgetWindows.length > 0) {
+      const unitMatch = unitsOf(p).some((u) => {
+        const typeOk = selType.length === 0 || selType.some((t) => squashType(t) === squashType(u.type));
+        const priceOk = budgetWindows.length === 0 ||
+          budgetWindows.some(([mn, mx]) => u.price_max >= mn && u.price_min <= (mx >= PMAX ? Infinity : mx));
+        return typeOk && priceOk;
+      });
+      if (!unitMatch) return false;
     }
     // Specific areas win; otherwise a picked zone means "anywhere in that zone".
     if (selLoc.length > 0) {
@@ -230,7 +256,6 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
     } else if (selZones.length > 0 && !zonesOf(p.location).some((z) => selZones.includes(z))) {
       return false;
     }
-    if (selType.length > 0 && !selType.some((b) => p.bhk_types?.some((t) => t.replace(/\s+/g, '').toLowerCase() === b.replace(/\s+/g, '').toLowerCase()))) return false;
     if (status !== 'all' && p.status !== status) return false;
     // Same matcher the search dropdown uses, so the cards behind it agree.
     if (search && !matchesQuery(p, search)) return false;
