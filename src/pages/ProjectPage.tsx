@@ -6,6 +6,7 @@ import BrandLogo from '../components/BrandLogo';
 import GlobalSearch from '../components/GlobalSearch';
 import { formatPrice } from '../lib/format';
 import ThemeToggle from '../components/ThemeToggle';
+import NotificationBell from '../components/NotificationBell';
 
 interface Landmark {
   name: string;
@@ -183,6 +184,7 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
       </div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <button onClick={onBack} style={{ background: 'var(--border)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 7, padding: '6px 16px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>← Back</button>
+        <NotificationBell />
         <ThemeToggle />
         <UserMenu user={user} groups={buildAccountMenu({ ...menuNav, isAdmin: user.role === 'admin' })} />
       </div>

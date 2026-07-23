@@ -7,6 +7,7 @@ import MultiSelect from '../components/MultiSelect';
 import BrandLogo from '../components/BrandLogo';
 import GlobalSearch, { matchesQuery } from '../components/GlobalSearch';
 import ThemeToggle from '../components/ThemeToggle';
+import NotificationBell from '../components/NotificationBell';
 import { ZONES, zoneLabel } from '../lib/zones';
 
 interface Project {
@@ -275,6 +276,7 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
             <div style={{ flex: '0 1 440px', minWidth: 0, display: 'flex' }}>
               <GlobalSearch projects={projects} value={search} onQueryChange={setSearch} onSelectProject={onViewProject} />
             </div>
+            <NotificationBell />
             <ThemeToggle />
             {/* Already home, so no Home entry in the menu here. */}
             <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoHome: undefined })} />

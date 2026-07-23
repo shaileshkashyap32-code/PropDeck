@@ -3,6 +3,7 @@ import { supabase, getSession } from '../lib/supabase';
 import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 import ThemeToggle from '../components/ThemeToggle';
+import NotificationBell from '../components/NotificationBell';
 import Avatar from '../components/Avatar';
 import { formatPrice } from '../lib/format';
 import { downscaleImage } from '../lib/image';
@@ -132,6 +133,7 @@ export default function Profile({ user, section, onBack, onAvatarChange, ...nav 
         </span>
       </div>
       <div className="flex items-center gap-3">
+        <NotificationBell />
         <ThemeToggle />
         <UserMenu user={user} groups={buildAccountMenu({ isAdmin: user.role === 'admin', ...nav })} />
       </div>

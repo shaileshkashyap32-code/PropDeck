@@ -5,6 +5,7 @@ import UserMenu, { buildAccountMenu } from '../components/UserMenu'
 import BrandLogo from '../components/BrandLogo'
 import GlobalSearch from '../components/GlobalSearch'
 import ThemeToggle from '../components/ThemeToggle'
+import NotificationBell from '../components/NotificationBell'
 import { ZONES } from '../lib/zones'
 import { formatPrice } from '../lib/format'
 
@@ -687,6 +688,7 @@ Write ONLY the pitch script. No labels or preamble.`
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <NotificationBell />
           <ThemeToggle />
           {/* Already in the panel, so the menu drops its Admin Panel entry here. */}
           <UserMenu user={user} groups={buildAccountMenu({ ...nav, isAdmin: user.role === 'admin', onGoAdmin: undefined })} />
