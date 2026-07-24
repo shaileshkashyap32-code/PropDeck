@@ -361,6 +361,7 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
               onClear={() => setSelLoc([])}
               placeholder={selZones.length ? `All areas in ${selZones.map(zoneLabel).join(', ')}` : 'All Locations'}
               clearLabel="Clear locations"
+              searchable
             />
             {popularLocations.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>

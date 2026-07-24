@@ -19,11 +19,21 @@ interface Props {
   renderLabel?: (value: string) => string
   /** Accessible name for the clear (×) control. */
   clearLabel?: string
+  /** Show a filter box at the top of the panel — worth it for long lists. */
+  searchable?: boolean
 }
 
-export default function MultiSelect({ options, selected, onToggle, onClear, placeholder, renderLabel, clearLabel = 'Clear selection' }: Props) {
+export default function MultiSelect({ options, selected, onToggle, onClear, placeholder, renderLabel, clearLabel = 'Clear selection', searchable = false }: Props) {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const wrapRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  // Clear the filter each time the panel closes, and focus it when it opens.
+  useEffect(() => {
+    if (!open) { setQuery(''); return }
+    searchRef.current?.focus()
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -46,6 +56,9 @@ export default function MultiSelect({ options, selected, onToggle, onClear, plac
     selected.length === 0 ? placeholder
       : selected.length <= 2 ? selected.join(', ')
       : `${selected.length} selected`
+
+  const q = query.trim().toLowerCase()
+  const filtered = q ? options.filter((o) => o.toLowerCase().includes(q)) : options
 
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
@@ -103,7 +116,32 @@ export default function MultiSelect({ options, selected, onToggle, onClear, plac
             zIndex: 50,
           }}
         >
-          {options.map((opt) => {
+          {searchable && (
+            <div style={{ position: 'sticky', top: 0, background: 'var(--bg-raised)', padding: '2px 2px 6px', zIndex: 1 }}>
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search…"
+                aria-label="Filter options"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: 'rgba(79,70,229,0.12)',
+                  border: '1px solid var(--border-strong)',
+                  borderRadius: 7,
+                  padding: '7px 10px',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+              />
+            </div>
+          )}
+          {filtered.length === 0 && (
+            <div style={{ padding: '10px 9px', color: 'var(--text-faint)', fontSize: 13 }}>No matches</div>
+          )}
+          {filtered.map((opt) => {
             const on = selected.includes(opt)
             return (
               <button
