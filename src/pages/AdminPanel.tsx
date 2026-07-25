@@ -7,6 +7,7 @@ import GlobalSearch from '../components/GlobalSearch'
 import ThemeToggle from '../components/ThemeToggle'
 import NotificationBell from '../components/NotificationBell'
 import { ZONES } from '../lib/zones'
+import { PROJECT_STATUSES, RERA_NA_STATUSES, statusMeta } from '../lib/status'
 import { formatPrice } from '../lib/format'
 
 interface Props {
@@ -53,7 +54,7 @@ interface FormData {
 
 const EMPTY: FormData = {
   name: '', developer: '', location: '', rera_number: '',
-  status: 'Under Construction', possession_date: '',
+  status: 'Launched', possession_date: '',
   usp1: '', usp2: '', usp3: '', usp4: '', usp5: '',
   pitch_script: '', image_url: '', google_maps_url: '', tags: '',
   lm1_name: '', lm1_dist: '', lm1_type: 'Metro',
@@ -191,7 +192,7 @@ Required JSON structure:
   "developer": "developer/builder name",
   "location": "micro-market area only (e.g. Sadahalli, Whitefield, Sarjapur Road — NOT full address)",
   "rera_number": "RERA number if present else empty string",
-  "status": "Under Construction or Ready to Move",
+  "status": "one of: Pre launch, Launched, Ready to move in, Resale",
   "possession_date": "possession timeline if mentioned else empty string",
   "unit_configs": [
     {
@@ -234,7 +235,7 @@ ${quickFillText}`
       if (ex.developer) setF('developer', ex.developer)
       if (ex.location) { setF('location', ex.location); setFormLocWarning('') }
       if (ex.rera_number) setF('rera_number', ex.rera_number)
-      if (ex.status === 'Under Construction' || ex.status === 'Ready to Move') setF('status', ex.status)
+      if (ex.status) setF('status', ex.status)
       if (ex.possession_date) setF('possession_date', ex.possession_date)
       if (Array.isArray(ex.usps)) {
         const keys: (keyof FormData)[] = ['usp1','usp2','usp3','usp4','usp5']
@@ -495,8 +496,10 @@ Write ONLY the pitch script. No labels or preamble.`
   const startEdit = (p: any) => {
     setForm({
       name: p.name || '', developer: p.developer || '', location: p.location || '',
-      rera_number: p.rera_number || '', status: p.status || 'Under Construction',
-      possession_date: p.possession_date || '',
+      rera_number: p.rera_number || '', status: p.status || 'Launched',
+      // Possession is required now; fill legacy blanks with a safe placeholder
+      // so editing an old project isn't blocked.
+      possession_date: p.possession_date || '2040',
       usp1: p.usps?.[0] || '', usp2: p.usps?.[1] || '', usp3: p.usps?.[2] || '',
       usp4: p.usps?.[3] || '', usp5: p.usps?.[4] || '',
       pitch_script: p.pitch_script || '', image_url: p.image_url || '',
@@ -532,8 +535,9 @@ Write ONLY the pitch script. No labels or preamble.`
 
   // ─── Save project ─────────────────────────────────────────────────────────
   const save = async () => {
-    if (!form.name || !form.developer || !form.location) {
-      flash('Fill required: Name, Developer, Location.', 'err'); return
+    if (!form.name.trim() || !form.developer.trim() || !form.location.trim()
+        || !form.rera_number.trim() || !form.status.trim() || !form.possession_date.trim()) {
+      flash('Fill all required fields: Name, Developer, Location, RERA Number, Status, Possession Date. Use "NA" for RERA if pre-launch/resale.', 'err'); return
     }
     const validConfigs = unitConfigs.filter(u => u.type && u.price_min)
     if (validConfigs.length === 0) {
@@ -748,7 +752,7 @@ Write ONLY the pitch script. No labels or preamble.`
                         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{p.name}</div>
                         <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>{p.developer} · {p.location}</div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: p.status === 'Ready to Move' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: p.status === 'Ready to Move' ? '#10B981' : '#F59E0B' }}>{p.status === 'Ready to Move' ? 'Ready' : 'UC'}</span>
+                          <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: statusMeta(p.status).tint, color: statusMeta(p.status).text }}>{p.status || '—'}</span>
                           <div style={{ display: 'flex', gap: 8 }}>
                             <button onClick={() => startEdit(p)} style={{ background: 'var(--border-strong)', border: 'none', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>Edit</button>
                             <button onClick={() => handleDelete(p.id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '5px 12px', color: '#F87171', cursor: 'pointer', fontSize: 13 }}>Del</button>
@@ -772,7 +776,7 @@ Write ONLY the pitch script. No labels or preamble.`
                               <td style={{ padding: '13px 16px', color: 'var(--text-dim)' }}>{p.developer}</td>
                               <td style={{ padding: '13px 16px', color: 'var(--text-dim)' }}>{p.location}</td>
                               <td style={{ padding: '13px 16px' }}>
-                                <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: p.status === 'Ready to Move' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: p.status === 'Ready to Move' ? '#10B981' : '#F59E0B' }}>{p.status}</span>
+                                <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: statusMeta(p.status).tint, color: statusMeta(p.status).text }}>{p.status || '—'}</span>
                               </td>
                               <td style={{ padding: '13px 16px', color: 'var(--text-muted)' }}>{formatPrice(p.price_min)} – {formatPrice(p.price_max)}</td>
                               <td style={{ padding: '13px 16px' }}>
@@ -835,15 +839,29 @@ Write ONLY the pitch script. No labels or preamble.`
                       </div>
                     )}
                   </div>
-                  <div><label style={lbl}>RERA Number</label><input style={inp} value={form.rera_number} onChange={e => setF('rera_number', e.target.value)} placeholder="Optional" /></div>
+                  <div><label style={lbl}>RERA Number *</label><input style={inp} value={form.rera_number} onChange={e => setF('rera_number', e.target.value)} placeholder='RERA no. — or "NA"' /></div>
                   <div>
                     <label style={lbl}>Status *</label>
-                    <select style={inp} value={form.status} onChange={e => setF('status', e.target.value)}>
-                      <option style={{ background: 'var(--bg-raised)' }}>Under Construction</option>
-                      <option style={{ background: 'var(--bg-raised)' }}>Ready to Move</option>
+                    <select
+                      style={inp}
+                      value={form.status}
+                      onChange={e => {
+                        const next = e.target.value
+                        setF('status', next)
+                        // Pre-launch/resale have no RERA — auto-fill "NA" if blank.
+                        if (RERA_NA_STATUSES.includes(next) && !form.rera_number.trim()) setF('rera_number', 'NA')
+                      }}
+                    >
+                      {/* Keep any legacy value selectable until the backfill runs. */}
+                      {(PROJECT_STATUSES as readonly string[]).includes(form.status)
+                        ? null
+                        : <option style={{ background: 'var(--bg-raised)' }}>{form.status}</option>}
+                      {PROJECT_STATUSES.map(s => (
+                        <option key={s} style={{ background: 'var(--bg-raised)' }}>{s}</option>
+                      ))}
                     </select>
                   </div>
-                  <div><label style={lbl}>Possession Date</label><input style={inp} value={form.possession_date} onChange={e => setF('possession_date', e.target.value)} placeholder="e.g. Dec 2026" /></div>
+                  <div><label style={lbl}>Possession Date *</label><input style={inp} value={form.possession_date} onChange={e => setF('possession_date', e.target.value)} placeholder="e.g. Dec 2026 · 2040 if unknown" /></div>
                 </div>
               </div>
 

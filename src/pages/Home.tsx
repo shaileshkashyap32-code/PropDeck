@@ -9,6 +9,7 @@ import GlobalSearch, { matchesQuery } from '../components/GlobalSearch';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 import { ZONES, zoneLabel } from '../lib/zones';
+import { PROJECT_STATUSES, statusMeta } from '../lib/status';
 
 interface Project {
   id: string;
@@ -230,7 +231,7 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
   if (status !== 'all') {
     activeFilters.push({
       key: 'status',
-      label: status === 'Ready to Move' ? 'Ready to Move' : 'Under Construction',
+      label: status,
       remove: () => setStatus('all'),
     });
   }
@@ -401,12 +402,13 @@ export default function Home({ user, onViewProject, ...nav }: Props) {
             </div>
           </div>
 
-          {/* Status */}
+          {/* Status — four lifecycle stages plus All. */}
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>Status</div>
-            <div style={{ display: 'flex', background: 'rgba(79,70,229,0.1)', borderRadius: 8, padding: 3, gap: 2 }}>
-              {[['all','All'],['Ready to Move','Ready'],['Under Construction','UC']].map(([v, l]) => (
-                <button key={v} onClick={() => setStatus(v)} style={{ flex: 1, padding: '7px 4px', borderRadius: 6, border: 'none', fontSize: 11, cursor: 'pointer', background: status === v ? 'linear-gradient(135deg,#4F46E5,#9333EA)' : 'transparent', color: status === v ? 'white' : 'var(--text-faint)', fontWeight: status === v ? 600 : 400 }}>{l}</button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              <button onClick={() => setStatus('all')} style={chipStyle(status === 'all')}>All</button>
+              {PROJECT_STATUSES.map((s) => (
+                <button key={s} onClick={() => setStatus(status === s ? 'all' : s)} style={chipStyle(status === s)}>{s}</button>
               ))}
             </div>
           </div>
@@ -441,7 +443,7 @@ function Card({ project: p, onView }: { project: Project; onView: (id: string) =
       onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}>
       <div style={{ height: 150, background: isPlot ? 'linear-gradient(135deg,rgba(16,185,129,0.2),rgba(5,150,105,0.3))' : 'linear-gradient(135deg,var(--border-strong),rgba(147,51,234,0.3))', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
         {p.image_url ? <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 48, opacity: 0.3 }}>{isPlot ? '🏞️' : '🏢'}</span>}
-        <span style={{ position: 'absolute', top: 10, right: 10, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: p.status === 'Ready to Move' ? '#10B981' : '#F59E0B', color: '#FFFFFF' }}>{p.status === 'Ready to Move' ? 'Ready' : 'UC'}</span>
+        <span style={{ position: 'absolute', top: 10, right: 10, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: statusMeta(p.status).solid, color: '#FFFFFF' }}>{statusMeta(p.status).label}</span>
       </div>
       <div style={{ padding: 16 }}>
         <div style={{ fontSize: 11, color: isPlot ? '#10B981' : '#6366F1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{p.developer}</div>

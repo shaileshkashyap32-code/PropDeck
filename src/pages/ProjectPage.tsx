@@ -5,6 +5,7 @@ import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 import BrandLogo from '../components/BrandLogo';
 import GlobalSearch from '../components/GlobalSearch';
 import { formatPrice } from '../lib/format';
+import { statusMeta } from '../lib/status';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 
@@ -209,7 +210,7 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
               ? <img src={project.image_url} alt={project.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : <span style={{ fontSize: 64, opacity: 0.3 }}>🏢</span>}
             <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 8 }}>
-              <span style={{ background: project.status === 'Ready to Move' ? '#10B981' : '#F59E0B', color: '#FFFFFF', fontSize: 11, padding: '4px 12px', borderRadius: 20, fontWeight: 700 }}>{project.status}</span>
+              <span style={{ background: statusMeta(project.status).solid, color: '#FFFFFF', fontSize: 11, padding: '4px 12px', borderRadius: 20, fontWeight: 700 }}>{project.status}</span>
               {project.rera_number && <span style={{ background: 'rgba(99,102,241,0.7)', color: '#FFFFFF', fontSize: 11, padding: '4px 12px', borderRadius: 20 }}>RERA ✓</span>}
             </div>
           </div>
