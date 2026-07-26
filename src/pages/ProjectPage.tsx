@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getSession } from '../lib/supabase';
 import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 import BrandLogo from '../components/BrandLogo';
@@ -83,6 +83,16 @@ function stripBold(text: string) {
   return text.replace(/\*\*/g, '');
 }
 
+// Default two-message pair for "Send to Client". [Name] is substituted with the
+// entered client name at send time. The details default is only used when the
+// salesperson hasn't saved a per-project template in their Profile.
+function defaultGreeting(projectName: string, sp: string) {
+  return `Hi [Name], this is ${sp}. Thanks for connecting — sharing the details on ${projectName} below.`;
+}
+function defaultDetails(p: { name: string; developer: string; location: string; price_min: number; price_max: number; bhk_types: string[]; possession_date: string }, sp: string) {
+  return `*${p.name}* by ${p.developer}\n\n📍 ${p.location}\n💰 ${formatPrice(p.price_min)} – ${formatPrice(p.price_max)}\n🏠 ${p.bhk_types?.join(', ')}\n📅 Possession: ${p.possession_date}\n\n– ${sp}`;
+}
+
 // Inventory pill for the unit table. null/undefined = not tracked (—);
 // 0 = sold out (red); low stock warns amber; otherwise green.
 function availabilityBadge(unitsLeft: number | null | undefined) {
@@ -106,29 +116,43 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
   const [tab, setTab] = useState('overview');
   const [persona, setPersona] = useState<PersonaKey>('investor');
   const [phone, setPhone] = useState('');
+  const [clientName, setClientName] = useState('');
+  const [greeting, setGreeting] = useState('');
+  const [details, setDetails] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     setTab('overview');
-    Promise.all([
-      supabase.from('projects').select('*').eq('id', projectId).single(),
-      supabase.from('projects').select('*').neq('id', projectId).limit(3),
-    ]).then(([{ data: p }, { data: s }]) => {
-      setProject((p as Project) || null);
+    setPhone(''); setClientName('');
+    (async () => {
+      const [{ data: p }, { data: s }, tmpl] = await Promise.all([
+        supabase.from('projects').select('*').eq('id', projectId).single(),
+        supabase.from('projects').select('*').neq('id', projectId).limit(3),
+        supabase.rpc('get_my_whatsapp_templates', { p_token: getSession() }),
+      ]);
+      const proj = (p as Project) || null;
+      setProject(proj);
       setSimilar((s as Project[]) || []);
+      if (proj) {
+        // Details defaults to the salesperson's saved per-project template
+        // (set in Profile), falling back to a generated summary.
+        const rows = (tmpl.data as { project_id: string; message: string }[]) || [];
+        const saved = rows.find((r) => r.project_id === projectId)?.message;
+        setGreeting(defaultGreeting(proj.name, user.name));
+        setDetails(saved || defaultDetails(proj, user.name));
+      }
       setLoading(false);
-    });
+    })();
   }, [projectId]);
 
-  const sendWA = () => {
-    if (!project || phone.length !== 10) return;
-    const msg = encodeURIComponent(
-      `Hi! Here are details for *${project.name}* by ${project.developer}\n\n` +
-        `📍 ${project.location}\n💰 ${formatPrice(project.price_min)} – ${formatPrice(project.price_max)}\n` +
-        `🏠 ${project.bhk_types?.join(', ')}\n📅 Possession: ${project.possession_date}\n\n– ${user.name}`
-    );
-    window.open(`https://wa.me/91${phone}?text=${msg}`, '_blank');
+  // Fill [Name] with the entered client name (or a neutral fallback) and open
+  // WhatsApp to the same number. WhatsApp only prefills one message per link, so
+  // greeting and details are two separate sends to the same chat.
+  const sendMsg = (text: string) => {
+    if (phone.length !== 10) return;
+    const filled = text.replace(/\[name\]/gi, clientName.trim() || 'there');
+    window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(filled)}`, '_blank');
   };
 
   // ── Derived values ─────────────────────────────────────────────────────────
@@ -435,15 +459,40 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
             </div>
           </div>
 
-          <div style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 18, marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 12 }}>📲 Send to Client</div>
-            <input type="tel" maxLength={10} value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Client's 10-digit number"
-              style={{ width: '100%', background: 'rgba(79,70,229,0.12)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', marginBottom: 10, boxSizing: 'border-box' }} />
-            <button onClick={sendWA} disabled={phone.length !== 10}
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: 'none', background: phone.length === 10 ? '#25D366' : 'rgba(37,211,102,0.2)', color: phone.length === 10 ? 'white' : 'var(--text-faint)', fontWeight: 600, cursor: phone.length === 10 ? 'pointer' : 'default', fontSize: 14 }}>
-              💬 Send on WhatsApp
-            </button>
-          </div>
+          {(() => {
+            const ready = phone.length === 10;
+            const field = { width: '100%', background: 'rgba(79,70,229,0.12)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' as const };
+            const sendBtn = { width: '100%', padding: 9, borderRadius: 8, border: 'none', background: ready ? '#25D366' : 'rgba(37,211,102,0.2)', color: ready ? 'white' : 'var(--text-faint)', fontWeight: 600, cursor: ready ? 'pointer' : 'default', fontSize: 13 };
+            return (
+              <div style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 18, marginBottom: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 12 }}>📲 Send to Client</div>
+
+                {/* Entered once — used for both messages. */}
+                <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name"
+                  style={{ ...field, marginBottom: 8 }} />
+                <input type="tel" maxLength={10} value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Client's 10-digit number"
+                  style={{ ...field, marginBottom: 14 }} />
+
+                {/* Message 1 — greeting (personalise the name/context) */}
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>① Greeting</div>
+                <textarea value={greeting} onChange={e => setGreeting(e.target.value)} rows={3}
+                  style={{ ...field, resize: 'vertical', marginBottom: 6, fontFamily: 'inherit' }} />
+                <button onClick={() => sendMsg(greeting)} disabled={!ready} style={{ ...sendBtn, marginBottom: 16 }}>
+                  💬 Send greeting
+                </button>
+
+                {/* Message 2 — fixed project details (your saved template) */}
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>② Project details</div>
+                <textarea value={details} onChange={e => setDetails(e.target.value)} rows={5}
+                  style={{ ...field, resize: 'vertical', marginBottom: 6, fontFamily: 'inherit' }} />
+                <button onClick={() => sendMsg(details)} disabled={!ready} style={sendBtn}>
+                  💬 Send details
+                </button>
+
+                {!ready && <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 8 }}>Enter a 10-digit number to enable sending.</div>}
+              </div>
+            );
+          })()}
 
           {project.google_maps_url && (
             <a href={project.google_maps_url} target="_blank" rel="noreferrer"
