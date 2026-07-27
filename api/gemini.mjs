@@ -8,7 +8,9 @@ export default async function handler(req, res) {
     return
   }
 
-  const { prompt, useSearch } = req.body || {}
+  // `image` (optional): { mimeType, data } where data is base64 (no data: prefix).
+  // Used for reading brochure/pricing-table screenshots via Gemini vision.
+  const { prompt, useSearch, image } = req.body || {}
   if (!prompt) {
     res.status(400).json({ error: 'Missing prompt' })
     return
@@ -20,7 +22,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const body = { contents: [{ parts: [{ text: prompt }] }] }
+    const parts = [{ text: prompt }]
+    if (image?.data && image?.mimeType) {
+      parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } })
+    }
+    const body = { contents: [{ parts }] }
     // The persona pitch generation grounds its answers in a live Google search.
     if (useSearch) body.tools = [{ google_search: {} }]
 

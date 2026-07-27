@@ -159,11 +159,11 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   // Calls go through our own /api/gemini server function so the API key stays
   // on the server and never ships in the browser bundle. Pass useSearch=true to
   // let Gemini ground its answer in a live Google search.
-  const callGemini = async (prompt: string, useSearch = false): Promise<string> => {
+  const callGemini = async (prompt: string, useSearch = false, image?: { mimeType: string; data: string }): Promise<string> => {
     const res = await fetch('/api/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, useSearch })
+      body: JSON.stringify({ prompt, useSearch, image })
     })
     const data = await res.json()
     return data.text?.trim() || ''
@@ -190,8 +190,10 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
     return null
   }
 
-  // Pull text out of uploaded files (PDF/PPTX/DOCX/image/text) locally and drop
-  // it into the Quick Fill box — only the text, never the file, goes to Gemini.
+  // Documents (PDF/PPTX/DOCX/text) are read locally and their text goes into the
+  // Quick Fill box — only text is sent to the AI. Images are read by Gemini
+  // vision (accurate on tables/screenshots, unlike client OCR) and fill the
+  // fields directly.
   const handleBrochureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
@@ -199,12 +201,19 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
     setExtractingFiles(true)
     let added = ''
     let emptyCount = 0
+    let imageFilled = false
     for (const file of files) {
-      setExtractStatus(`Reading ${file.name}…`)
       try {
-        const { text, empty } = await extractFileText(file, (m) => setExtractStatus(`${file.name}: ${m}`))
-        if (empty) { emptyCount++; continue }
-        added += `\n\n----- ${file.name} -----\n${text}`
+        if (file.type.startsWith('image/')) {
+          setExtractStatus(`Reading ${file.name} with AI…`)
+          await extractImageWithGemini(file)
+          imageFilled = true
+        } else {
+          setExtractStatus(`Reading ${file.name}…`)
+          const { text, empty } = await extractFileText(file)
+          if (empty) { emptyCount++; continue }
+          added += `\n\n----- ${file.name} -----\n${text}`
+        }
       } catch (err) {
         flash(`Could not read "${file.name}": ${err instanceof Error ? err.message : 'error'}`, 'err')
       }
@@ -212,17 +221,50 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
     if (added) setQuickFillText((prev) => (prev.trim() ? prev + added : added.trim()))
     setExtractStatus('')
     setExtractingFiles(false)
-    if (emptyCount > 0) flash(`${emptyCount} file(s) had no readable text (a scan with no text layer?) — try uploading it as an image so it's OCR'd.`, 'err')
+    if (imageFilled && !added) flash('✅ Read the image and filled the fields — review below, then Publish.')
+    else if (added && imageFilled) flash('✅ Image filled the fields; document text is in the box — click Extract & Fill for that too.')
+    else if (emptyCount > 0) flash(`${emptyCount} file(s) had no readable text (a scan?) — upload it as an image instead so the AI reads it.`, 'err')
     else if (added) flash('✅ Text extracted — review it, then click Extract & Fill.')
   }
 
-  // ─── Quick Fill with AI ───────────────────────────────────────────────────
-  const extractWithAI = async () => {
-    if (!quickFillText.trim()) { flash('Paste some project info first.', 'err'); return }
-    setGeneratingFill(true)
-    const prompt = `You are a real estate data extraction expert for Bangalore, India.
+  // Applies an extracted-fields JSON object onto the form. Shared by the text
+  // path (Quick Fill box) and the image path (Gemini vision).
+  const applyExtracted = (ex: any) => {
+    if (ex.name) setF('name', ex.name)
+    if (ex.developer) setF('developer', ex.developer)
+    if (ex.location) { setF('location', ex.location); setFormLocWarning('') }
+    if (ex.rera_number) setF('rera_number', ex.rera_number)
+    if (ex.status) setF('status', ex.status)
+    if (ex.possession_date) setF('possession_date', ex.possession_date)
+    if (Array.isArray(ex.usps)) {
+      const keys: (keyof FormData)[] = ['usp1','usp2','usp3','usp4','usp5']
+      keys.forEach((k, i) => { if (ex.usps[i]) setF(k, ex.usps[i]) })
+    }
+    if (Array.isArray(ex.landmarks)) {
+      ex.landmarks.slice(0, 4).forEach((lm: any, i: number) => {
+        setF(`lm${i+1}_name` as keyof FormData, lm.name || '')
+        setF(`lm${i+1}_dist` as keyof FormData, lm.distance || '')
+        setF(`lm${i+1}_type` as keyof FormData, lm.type || 'Other')
+      })
+    }
+    if (Array.isArray(ex.tags)) setF('tags', ex.tags.join(', '))
+    if (Array.isArray(ex.unit_configs) && ex.unit_configs.length > 0) {
+      setUnitConfigs(ex.unit_configs.map((u: any) => ({
+        type: u.type || '',
+        price_min: String(u.price_min || ''),
+        price_max: String(u.price_max || ''),
+        sba_min: String(u.sba_min || ''),
+        sba_max: String(u.sba_max || ''),
+        units_left: u.units_left === 0 || u.units_left ? String(u.units_left) : '',
+      })))
+    }
+  }
 
-Extract project details from the text below and return ONLY a valid JSON object (no markdown, no explanation).
+  // The extraction prompt, shared by text and image paths. `source` describes
+  // where the details are ("the text below" / "the image").
+  const extractionPrompt = (source: string, text = '') => `You are a real estate data extraction expert for Bangalore, India.
+
+Extract project details from ${source} and return ONLY a valid JSON object (no markdown, no explanation).
 
 Required JSON structure:
 {
@@ -259,49 +301,43 @@ Rules:
 - For USPs: prioritise facts that a salesperson can say on a live call to different buyer types
 - Include up to 4 landmarks with realistic distances
 - Tags: 3-5 short keywords (e.g. Township, Airport Zone, Premium, NRI Friendly, Investment)
-- Return ONLY the JSON object
+- Return ONLY the JSON object${text ? `\n\nText:\n${text}` : ''}`
 
-Text:
-${quickFillText}`
-
+  // Quick Fill: extract fields from the pasted/extracted text in the box.
+  const extractWithAI = async () => {
+    if (!quickFillText.trim()) { flash('Paste some project info first.', 'err'); return }
+    setGeneratingFill(true)
     try {
-      const raw = await callGemini(prompt)
+      const raw = await callGemini(extractionPrompt('the text below', quickFillText))
       const ex = safeJSON(raw)
       if (!ex) { flash('AI returned unexpected format. Try again.', 'err'); setGeneratingFill(false); return }
-
-      if (ex.name) setF('name', ex.name)
-      if (ex.developer) setF('developer', ex.developer)
-      if (ex.location) { setF('location', ex.location); setFormLocWarning('') }
-      if (ex.rera_number) setF('rera_number', ex.rera_number)
-      if (ex.status) setF('status', ex.status)
-      if (ex.possession_date) setF('possession_date', ex.possession_date)
-      if (Array.isArray(ex.usps)) {
-        const keys: (keyof FormData)[] = ['usp1','usp2','usp3','usp4','usp5']
-        keys.forEach((k, i) => { if (ex.usps[i]) setF(k, ex.usps[i]) })
-      }
-      if (Array.isArray(ex.landmarks)) {
-        ex.landmarks.slice(0, 4).forEach((lm: any, i: number) => {
-          setF(`lm${i+1}_name` as keyof FormData, lm.name || '')
-          setF(`lm${i+1}_dist` as keyof FormData, lm.distance || '')
-          setF(`lm${i+1}_type` as keyof FormData, lm.type || 'Other')
-        })
-      }
-      if (Array.isArray(ex.tags)) setF('tags', ex.tags.join(', '))
-      if (Array.isArray(ex.unit_configs) && ex.unit_configs.length > 0) {
-        setUnitConfigs(ex.unit_configs.map((u: any) => ({
-          type: u.type || '',
-          price_min: String(u.price_min || ''),
-          price_max: String(u.price_max || ''),
-          sba_min: String(u.sba_min || ''),
-          sba_max: String(u.sba_max || ''),
-          units_left: u.units_left === 0 || u.units_left ? String(u.units_left) : '',
-        })))
-      }
+      applyExtracted(ex)
       flash('✅ Fields filled! Review everything below, then click Publish.')
     } catch {
       flash('Extraction failed. Check pasted text and try again.', 'err')
     }
     setGeneratingFill(false)
+  }
+
+  // Reads a brochure/pricing-table IMAGE with Gemini vision and fills the fields
+  // directly. Far more reliable than client-side OCR, which mangles compressed
+  // table screenshots. A single image stays well within Gemini's free tier.
+  const extractImageWithGemini = async (file: File) => {
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const r = new FileReader()
+      r.onload = () => resolve(r.result as string)
+      r.onerror = () => reject(new Error('Could not read image'))
+      r.readAsDataURL(file)
+    })
+    const base64 = dataUrl.split(',')[1] || ''
+    const raw = await callGemini(
+      extractionPrompt('the attached project image — read ALL text, tables and prices in it carefully'),
+      false,
+      { mimeType: file.type || 'image/jpeg', data: base64 },
+    )
+    const ex = safeJSON(raw)
+    if (!ex) throw new Error('AI could not read the image')
+    applyExtracted(ex)
   }
 
   // ─── Persona pitch generation (Google Search grounded) ─────────────────────

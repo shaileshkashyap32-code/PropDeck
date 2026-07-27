@@ -9,10 +9,11 @@ import PdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 //   PDF          → pdf.js reads the text layer
 //   PPTX / DOCX  → unzip (they're zip archives of XML) and read the text nodes
 //   TXT / CSV    → read as-is
-//   images       → OCR via tesseract.js (lazy-loaded; heavier, slower)
 //
-// Old binary .ppt/.doc and scanned/image-only PDFs have no readable text layer;
-// those are reported so the admin knows to use an image/OCR instead.
+// Images are NOT handled here — they go to Gemini vision (see AdminPanel), which
+// is far more reliable than browser OCR on compressed table screenshots. Old
+// binary .ppt/.doc and scanned/image-only PDFs have no text layer and are
+// reported so the admin uploads them as an image instead.
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PdfWorkerUrl
 
@@ -21,8 +22,6 @@ export interface ExtractResult {
   /** True when the file type is understood but no text came out (e.g. scanned PDF). */
   empty: boolean
 }
-
-type OnStatus = (msg: string) => void
 
 async function extractPdfText(file: File): Promise<string> {
   const data = await file.arrayBuffer()
@@ -60,24 +59,13 @@ async function extractOfficeText(file: File, kind: 'pptx' | 'docx'): Promise<str
   return chunks.join('\n')
 }
 
-async function extractImageText(file: File, onStatus?: OnStatus): Promise<string> {
-  onStatus?.('Loading text recogniser…')
-  const Tesseract = await import('tesseract.js')
-  const { data } = await Tesseract.recognize(file, 'eng', {
-    logger: (m: { status?: string; progress?: number }) => {
-      if (m.status === 'recognizing text') onStatus?.(`Reading image… ${Math.round((m.progress ?? 0) * 100)}%`)
-    },
-  })
-  return data.text
-}
-
 function decodeEntities(s: string): string {
   return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
 }
 
 const nameHas = (f: File, ext: string) => new RegExp(`\\.${ext}$`, 'i').test(f.name)
 
-export async function extractFileText(file: File, onStatus?: OnStatus): Promise<ExtractResult> {
+export async function extractFileText(file: File): Promise<ExtractResult> {
   const type = file.type
   let text = ''
 
@@ -89,12 +77,10 @@ export async function extractFileText(file: File, onStatus?: OnStatus): Promise<
     text = await extractOfficeText(file, 'docx')
   } else if (type.startsWith('text/') || nameHas(file, 'txt') || nameHas(file, 'csv')) {
     text = await file.text()
-  } else if (type.startsWith('image/')) {
-    text = await extractImageText(file, onStatus)
   } else if (nameHas(file, 'ppt') || nameHas(file, 'doc')) {
     throw new Error('Old .ppt/.doc format — please save as .pptx/.docx or PDF.')
   } else {
-    throw new Error('Unsupported file. Use PDF, PPTX, DOCX, an image, or text.')
+    throw new Error('Unsupported file. Use PDF, PPTX, DOCX or text (images are read separately).')
   }
 
   text = decodeEntities(text).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
