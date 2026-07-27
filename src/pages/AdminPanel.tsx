@@ -8,6 +8,7 @@ import ThemeToggle from '../components/ThemeToggle'
 import NotificationBell from '../components/NotificationBell'
 import { ZONES } from '../lib/zones'
 import { PROJECT_STATUSES, RERA_NA_STATUSES, statusMeta } from '../lib/status'
+import { ASSET_KINDS, assetKindMeta, sortAssets, type ProjectAsset } from '../lib/assets'
 import { formatPrice } from '../lib/format'
 
 interface Props {
@@ -107,6 +108,12 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [generatingFill, setGeneratingFill] = useState(false)
   const [generatingScript, setGeneratingScript] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  // Assets (brochures/plans/gallery/video) for the project being edited.
+  const [assets, setAssets] = useState<ProjectAsset[]>([])
+  const [assetKind, setAssetKind] = useState<string>(ASSET_KINDS[0].key)
+  const [assetLabel, setAssetLabel] = useState('')
+  const [assetUrl, setAssetUrl] = useState('')
+  const [uploadingAsset, setUploadingAsset] = useState(false)
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768)
@@ -405,6 +412,50 @@ Return ONLY valid JSON, no markdown fences, no citation numbers inside text. Fol
     setUploadingImage(false)
   }
 
+  // ─── Project assets (brochures / plans / gallery / video) ──────────────────
+  const loadAssets = async (projectId: string) => {
+    const { data } = await supabase.from('project_assets').select('*').eq('project_id', projectId)
+    setAssets(((data as ProjectAsset[]) || []).slice().sort(sortAssets))
+  }
+
+  // Uploads a PDF/image into the existing public bucket (under an assets/
+  // prefix) and drops the resulting URL into the asset form. Video and other
+  // large files should be pasted as links instead.
+  const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (file.size > 20 * 1024 * 1024) { flash('File too large. Max 20MB — host big files (e.g. video) elsewhere and paste the link.', 'err'); return }
+    setUploadingAsset(true)
+    const fileName = `assets/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+    const { data, error } = await supabase.storage.from('project-images').upload(fileName, file, { contentType: file.type })
+    if (error) { flash('Upload failed: ' + error.message, 'err'); setUploadingAsset(false); return }
+    const { data: urlData } = supabase.storage.from('project-images').getPublicUrl(data.path)
+    setAssetUrl(urlData.publicUrl)
+    if (!assetLabel.trim()) setAssetLabel(assetKindMeta(assetKind).label)
+    flash('✅ File uploaded — now click Add.')
+    setUploadingAsset(false)
+  }
+
+  const addAsset = async () => {
+    if (!editId) { flash('Save the project first, then add brochures.', 'err'); return }
+    if (!assetUrl.trim()) { flash('Upload a file or paste a link first.', 'err'); return }
+    const label = assetLabel.trim() || assetKindMeta(assetKind).label
+    const { error } = await supabase.rpc('admin_add_project_asset', {
+      p_token: getSession(), p_project_id: editId, p_kind: assetKind, p_label: label, p_url: assetUrl.trim(),
+    })
+    if (error) { flash('Error: ' + error.message, 'err'); return }
+    setAssetLabel(''); setAssetUrl('')
+    loadAssets(editId)
+    flash('✅ Asset added.')
+  }
+
+  const removeAsset = async (id: string) => {
+    const { error } = await supabase.rpc('admin_delete_project_asset', { p_token: getSession(), p_id: id })
+    if (error) { flash('Error: ' + error.message, 'err'); return }
+    if (editId) loadAssets(editId)
+  }
+
   // ─── Pitch script generation (section ⑥) ─────────────────────────────────
   const generatePitchScript = async () => {
     if (!form.name || !form.developer || !form.location) {
@@ -524,6 +575,8 @@ Write ONLY the pitch script. No labels or preamble.`
       setUnitConfigs([{ ...EMPTY_UNIT }])
     }
     setFormLocWarning(''); setQuickFillText(''); setEditId(p.id); setSection('add')
+    setAssetKind(ASSET_KINDS[0].key); setAssetLabel(''); setAssetUrl('')
+    loadAssets(p.id)
   }
 
   const handleDelete = async (id: string) => {
@@ -674,6 +727,7 @@ Write ONLY the pitch script. No labels or preamble.`
   const resetForm = () => {
     setEditId(null); setForm(EMPTY); setUnitConfigs([{ ...EMPTY_UNIT }])
     setFormLocWarning(''); setQuickFillText('')
+    setAssets([]); setAssetKind(ASSET_KINDS[0].key); setAssetLabel(''); setAssetUrl('')
   }
 
   const canAddLoc = newLocation.trim() && !addLocIsDuplicate && (!addLocWarning || addLocForce)
@@ -992,6 +1046,62 @@ Write ONLY the pitch script. No labels or preamble.`
                   <input style={inp} value={form.google_maps_url} onChange={e => setF('google_maps_url', e.target.value)} placeholder="https://maps.google.com/..." />
                   <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginTop: 5 }}>Get embed URL: Google Maps → Share → Embed a map → copy the src value</div>
                 </div>
+              </div>
+
+              {/* ⑤b ASSETS & BROCHURES */}
+              <div style={card}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>📎 Assets & Brochures</div>
+                {!editId ? (
+                  <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Save the project first, then reopen it to attach brochures, plans, gallery and video links.</div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginBottom: 12 }}>
+                      Upload a PDF/image or paste a link (e.g. a YouTube walkthrough). These appear on the project page and in the WhatsApp "details" message. Nothing is required.
+                    </div>
+
+                    {/* Existing assets */}
+                    {assets.length > 0 && (
+                      <div style={{ marginBottom: 14 }}>
+                        {assets.map(a => (
+                          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 6 }}>
+                            <span style={{ flexShrink: 0 }}>{assetKindMeta(a.kind).emoji}</span>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500 }}>{a.label}</div>
+                              <a href={a.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.url}</a>
+                            </div>
+                            <button onClick={() => removeAsset(a.id)} style={{ flexShrink: 0, background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '5px 10px', color: '#F87171', cursor: 'pointer', fontSize: 12 }}>Remove</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add new asset */}
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '0.9fr 1.1fr', gap: 8, marginBottom: 8 }}>
+                      <div>
+                        <label style={lbl}>Section</label>
+                        <select style={inp} value={assetKind} onChange={e => setAssetKind(e.target.value)}>
+                          {ASSET_KINDS.map(k => <option key={k.key} value={k.key} style={{ background: 'var(--bg-raised)' }}>{k.emoji} {k.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={lbl}>Label (shown to client)</label>
+                        <input style={inp} value={assetLabel} onChange={e => setAssetLabel(e.target.value)} placeholder={assetKindMeta(assetKind).label} />
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(79,70,229,0.15)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '8px 14px', cursor: uploadingAsset ? 'default' : 'pointer', color: 'var(--text-muted)', fontSize: 13 }}>
+                        {uploadingAsset ? '⏳ Uploading…' : '⬆ Upload PDF / image'}
+                        <input type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={handleAssetUpload} disabled={uploadingAsset} />
+                      </label>
+                      <span style={{ fontSize: 12, color: 'var(--text-fainter)' }}>or</span>
+                      <input style={{ ...inp, flex: 1, minWidth: 180 }} value={assetUrl} onChange={e => setAssetUrl(e.target.value)} placeholder="paste a link (YouTube, Drive, …)" />
+                    </div>
+                    <button onClick={addAsset} disabled={!assetUrl.trim() || uploadingAsset}
+                      style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '8px 18px', color: '#FFFFFF', fontWeight: 600, cursor: assetUrl.trim() && !uploadingAsset ? 'pointer' : 'default', fontSize: 13, opacity: assetUrl.trim() && !uploadingAsset ? 1 : 0.5 }}>
+                      + Add asset
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* ⑥ PITCH SCRIPT */}

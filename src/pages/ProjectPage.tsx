@@ -6,6 +6,7 @@ import BrandLogo from '../components/BrandLogo';
 import GlobalSearch from '../components/GlobalSearch';
 import { formatPrice } from '../lib/format';
 import { statusMeta } from '../lib/status';
+import { assetKindMeta, sortAssets, type ProjectAsset } from '../lib/assets';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 
@@ -93,6 +94,13 @@ function defaultDetails(p: { name: string; developer: string; location: string; 
   return `*${p.name}* by ${p.developer}\n\n📍 ${p.location}\n💰 ${formatPrice(p.price_min)} – ${formatPrice(p.price_max)}\n🏠 ${p.bhk_types?.join(', ')}\n📅 Possession: ${p.possession_date}\n\n– ${sp}`;
 }
 
+// Appends the project's brochure/plan/video links to the WhatsApp message, one
+// per line: "📄 Master Plan: https://…"
+function assetLinksBlock(assets: ProjectAsset[]): string {
+  if (!assets.length) return '';
+  return '\n\n' + assets.map((a) => `${assetKindMeta(a.kind).emoji} ${a.label}: ${a.url}`).join('\n');
+}
+
 // Inventory pill for the unit table. null/undefined = not tracked (—);
 // 0 = sold out (red); low stock warns amber; otherwise green.
 function availabilityBadge(unitsLeft: number | null | undefined) {
@@ -119,6 +127,7 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
   const [clientName, setClientName] = useState('');
   const [greeting, setGreeting] = useState('');
   const [details, setDetails] = useState('');
+  const [assets, setAssets] = useState<ProjectAsset[]>([]);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -126,21 +135,26 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
     setTab('overview');
     setPhone(''); setClientName('');
     (async () => {
-      const [{ data: p }, { data: s }, tmpl] = await Promise.all([
+      const [{ data: p }, { data: s }, tmpl, assetRes] = await Promise.all([
         supabase.from('projects').select('*').eq('id', projectId).single(),
         supabase.from('projects').select('*').neq('id', projectId).limit(3),
         supabase.rpc('get_my_whatsapp_templates', { p_token: getSession() }),
+        supabase.from('project_assets').select('*').eq('project_id', projectId),
       ]);
       const proj = (p as Project) || null;
       setProject(proj);
       setSimilar((s as Project[]) || []);
+      // Tolerate the assets table not existing yet (before the migration).
+      const projAssets = assetRes.error ? [] : ((assetRes.data as ProjectAsset[]) || []).slice().sort(sortAssets);
+      setAssets(projAssets);
       if (proj) {
         // Details defaults to the salesperson's saved per-project template
-        // (set in Profile), falling back to a generated summary.
+        // (set in Profile), falling back to a generated summary — then the
+        // brochure/plan/video links are appended.
         const rows = (tmpl.data as { project_id: string; message: string }[]) || [];
         const saved = rows.find((r) => r.project_id === projectId)?.message;
         setGreeting(defaultGreeting(proj.name, user.name));
-        setDetails(saved || defaultDetails(proj, user.name));
+        setDetails((saved || defaultDetails(proj, user.name)) + assetLinksBlock(projAssets));
       }
       setLoading(false);
     })();
@@ -458,6 +472,20 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
               ))}
             </div>
           </div>
+
+          {assets.length > 0 && (
+            <div style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 18, marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 12 }}>📎 Brochures & Assets</div>
+              {assets.map((a) => (
+                <a key={a.id} href={a.url} target="_blank" rel="noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, textDecoration: 'none', color: 'var(--text-bright)', fontSize: 13, background: 'rgba(79,70,229,0.08)', marginBottom: 6 }}>
+                  <span style={{ flexShrink: 0 }}>{assetKindMeta(a.kind).emoji}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.label}</span>
+                  <span style={{ marginLeft: 'auto', color: 'var(--accent)', flexShrink: 0 }}>↗</span>
+                </a>
+              ))}
+            </div>
+          )}
 
           {(() => {
             const ready = phone.length === 10;
