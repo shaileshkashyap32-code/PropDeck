@@ -10,6 +10,7 @@ import { ZONES } from '../lib/zones'
 import { PROJECT_STATUSES, RERA_NA_STATUSES, statusMeta } from '../lib/status'
 import { ASSET_KINDS, assetKindMeta, sortAssets, type ProjectAsset } from '../lib/assets'
 import { uploadFileWithProgress } from '../lib/upload'
+import { extractPdfText, isPdf } from '../lib/extractText'
 import { formatPrice } from '../lib/format'
 
 interface Props {
@@ -107,6 +108,8 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [unitConfigs, setUnitConfigs] = useState<UnitConfig[]>([{ ...EMPTY_UNIT }])
   const [quickFillText, setQuickFillText] = useState('')
   const [generatingFill, setGeneratingFill] = useState(false)
+  const [extractingFiles, setExtractingFiles] = useState(false)
+  const [extractStatus, setExtractStatus] = useState('')
   const [generatingScript, setGeneratingScript] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   // Assets (brochures/plans/gallery/video) for the project being edited.
@@ -185,6 +188,33 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
       }
     }
     return null
+  }
+
+  // Pull text out of uploaded PDF brochures locally and drop it into the Quick
+  // Fill box — only the text (not the file) is ever sent to Gemini.
+  const handleBrochureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (!files.length) return
+    setExtractingFiles(true)
+    let added = ''
+    let ocrNeeded = 0
+    for (const file of files) {
+      if (!isPdf(file)) { flash(`Skipped "${file.name}" — only PDFs are read here. Photos/scans need OCR (ask to enable).`, 'err'); continue }
+      setExtractStatus(`Reading ${file.name}…`)
+      try {
+        const text = await extractPdfText(file)
+        if (text.length < 20) { ocrNeeded++; continue } // scanned PDF: no text layer
+        added += `\n\n----- ${file.name} -----\n${text}`
+      } catch (err) {
+        flash(`Could not read "${file.name}": ${err instanceof Error ? err.message : 'error'}`, 'err')
+      }
+    }
+    if (added) setQuickFillText((prev) => (prev.trim() ? prev + added : added.trim()))
+    setExtractStatus('')
+    setExtractingFiles(false)
+    if (ocrNeeded > 0) flash(`${ocrNeeded} file(s) look scanned (no text layer) — those need OCR, which isn't enabled yet.`, 'err')
+    else if (added) flash('✅ Text extracted — review it, then click Extract & Fill.')
   }
 
   // ─── Quick Fill with AI ───────────────────────────────────────────────────
@@ -862,12 +892,23 @@ Write ONLY the pitch script. No labels or preamble.`
               <div style={{ ...card, borderColor: 'rgba(139,92,246,0.5)', background: 'rgba(88,28,219,0.1)' }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-bright)', marginBottom: 4 }}>🪄 Quick Fill with AI</div>
                 <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12 }}>
-                  Paste WhatsApp forwards, website copy, or any project text — AI extracts and fills all fields below automatically.
+                  Paste WhatsApp forwards, website copy, or any project text — or upload a brochure PDF and its text is pulled out here. AI then fills all fields below.
                 </div>
+
+                {/* Upload PDF brochure(s) — text is extracted locally and only the
+                    text goes to the AI, so big files never touch Gemini. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.5)', borderRadius: 8, padding: '8px 14px', cursor: extractingFiles ? 'default' : 'pointer', color: 'var(--accent-bright)', fontSize: 13, fontWeight: 600 }}>
+                    {extractingFiles ? '⏳ Reading…' : '📄 Upload brochure PDF(s)'}
+                    <input type="file" accept=".pdf" multiple style={{ display: 'none' }} onChange={handleBrochureUpload} disabled={extractingFiles} />
+                  </label>
+                  {extractStatus && <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{extractStatus}</span>}
+                </div>
+
                 <textarea
                   value={quickFillText}
                   onChange={e => setQuickFillText(e.target.value)}
-                  placeholder={`Paste everything here — WhatsApp forward, brochure text, pricing table, any raw project info...\n\nExample:\n"Project: Bhartiya Garden Estate Nikoo 7\nLocation: Sadahalli opposite Prestige Tech Cloud\n2BHK starting ₹85L, Villa ₹5.79Cr...\nKIAL Airport 8km, Metro 4km..."`}
+                  placeholder={`Paste everything here, or upload a brochure PDF above — WhatsApp forward, brochure text, pricing table, any raw project info...\n\nExample:\n"Project: Bhartiya Garden Estate Nikoo 7\nLocation: Sadahalli opposite Prestige Tech Cloud\n2BHK starting ₹85L, Villa ₹5.79Cr...\nKIAL Airport 8km, Metro 4km..."`}
                   rows={7}
                   style={{ ...inp, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6, fontSize: 13 }}
                 />
