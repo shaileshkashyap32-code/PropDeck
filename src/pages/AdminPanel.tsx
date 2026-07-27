@@ -9,6 +9,7 @@ import NotificationBell from '../components/NotificationBell'
 import { ZONES } from '../lib/zones'
 import { PROJECT_STATUSES, RERA_NA_STATUSES, statusMeta } from '../lib/status'
 import { ASSET_KINDS, assetKindMeta, sortAssets, type ProjectAsset } from '../lib/assets'
+import { uploadFileWithProgress } from '../lib/upload'
 import { formatPrice } from '../lib/format'
 
 interface Props {
@@ -114,6 +115,7 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [assetLabel, setAssetLabel] = useState('')
   const [assetUrl, setAssetUrl] = useState('')
   const [uploadingAsset, setUploadingAsset] = useState(false)
+  const [assetProgress, setAssetProgress] = useState(0)
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768)
@@ -425,16 +427,19 @@ Return ONLY valid JSON, no markdown fences, no citation numbers inside text. Fol
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    if (file.size > 20 * 1024 * 1024) { flash('File too large. Max 20MB — host big files (e.g. video) elsewhere and paste the link.', 'err'); return }
-    setUploadingAsset(true)
-    const fileName = `assets/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-    const { data, error } = await supabase.storage.from('project-images').upload(fileName, file, { contentType: file.type })
-    if (error) { flash('Upload failed: ' + error.message, 'err'); setUploadingAsset(false); return }
-    const { data: urlData } = supabase.storage.from('project-images').getPublicUrl(data.path)
-    setAssetUrl(urlData.publicUrl)
-    if (!assetLabel.trim()) setAssetLabel(assetKindMeta(assetKind).label)
-    flash('✅ File uploaded — now click Add.')
-    setUploadingAsset(false)
+    if (file.size > 250 * 1024 * 1024) { flash('File too large. Max 250MB — for bigger videos, host on YouTube/Drive and paste the link.', 'err'); return }
+    setUploadingAsset(true); setAssetProgress(0)
+    try {
+      const fileName = `assets/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+      const { publicUrl } = await uploadFileWithProgress('project-images', fileName, file, setAssetProgress)
+      setAssetUrl(publicUrl)
+      if (!assetLabel.trim()) setAssetLabel(assetKindMeta(assetKind).label)
+      flash('✅ File uploaded — now click Add.')
+    } catch (err) {
+      flash('Upload failed: ' + (err instanceof Error ? err.message : 'unknown error'), 'err')
+    } finally {
+      setUploadingAsset(false); setAssetProgress(0)
+    }
   }
 
   const addAsset = async () => {
@@ -1090,12 +1095,25 @@ Write ONLY the pitch script. No labels or preamble.`
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
                       <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(79,70,229,0.15)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '8px 14px', cursor: uploadingAsset ? 'default' : 'pointer', color: 'var(--text-muted)', fontSize: 13 }}>
-                        {uploadingAsset ? '⏳ Uploading…' : '⬆ Upload PDF / image'}
-                        <input type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={handleAssetUpload} disabled={uploadingAsset} />
+                        {uploadingAsset ? `⏳ Uploading… ${assetProgress}%` : '⬆ Upload PDF / image / video'}
+                        <input type="file" accept=".pdf,image/*,video/*" style={{ display: 'none' }} onChange={handleAssetUpload} disabled={uploadingAsset} />
                       </label>
                       <span style={{ fontSize: 12, color: 'var(--text-fainter)' }}>or</span>
                       <input style={{ ...inp, flex: 1, minWidth: 180 }} value={assetUrl} onChange={e => setAssetUrl(e.target.value)} placeholder="paste a link (YouTube, Drive, …)" />
                     </div>
+
+                    {/* Upload progress */}
+                    {uploadingAsset && (
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ height: 8, borderRadius: 999, background: 'rgba(79,70,229,0.15)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${assetProgress}%`, background: 'linear-gradient(90deg,#4F46E5,#9333EA)', transition: 'width 0.15s' }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>
+                          {assetProgress}% uploaded{assetProgress < 100 ? ` · ${100 - assetProgress}% left` : ' · finishing…'}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginBottom: 8 }}>Up to 250MB. Videos are large — a YouTube/Drive link is usually better than an upload.</div>
                     <button onClick={addAsset} disabled={!assetUrl.trim() || uploadingAsset}
                       style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 8, padding: '8px 18px', color: '#FFFFFF', fontWeight: 600, cursor: assetUrl.trim() && !uploadingAsset ? 'pointer' : 'default', fontSize: 13, opacity: assetUrl.trim() && !uploadingAsset ? 1 : 0.5 }}>
                       + Add asset
