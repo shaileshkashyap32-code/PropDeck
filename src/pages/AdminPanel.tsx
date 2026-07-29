@@ -190,10 +190,9 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
     return null
   }
 
-  // Documents (PDF/PPTX/DOCX/text) are read locally and their text goes into the
-  // Quick Fill box — only text is sent to the AI. Images are read by Gemini
-  // vision (accurate on tables/screenshots, unlike client OCR) and fill the
-  // fields directly.
+  // Every upload lands its text in the Quick Fill box. Documents (PDF/PPTX/DOCX/
+  // text) are read locally; images are transcribed by Gemini vision. Then one
+  // "Extract & Fill" reads the whole box and reconciles across sources.
   const handleBrochureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
@@ -201,19 +200,20 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
     setExtractingFiles(true)
     let added = ''
     let emptyCount = 0
-    let imageFilled = false
     for (const file of files) {
       try {
+        let text = ''
         if (file.type.startsWith('image/')) {
           setExtractStatus(`Reading ${file.name} with AI…`)
-          await extractImageWithGemini(file)
-          imageFilled = true
+          text = (await transcribeImageWithGemini(file)).trim()
         } else {
           setExtractStatus(`Reading ${file.name}…`)
-          const { text, empty } = await extractFileText(file)
-          if (empty) { emptyCount++; continue }
-          added += `\n\n----- ${file.name} -----\n${text}`
+          const r = await extractFileText(file)
+          if (r.empty) { emptyCount++; continue }
+          text = r.text
         }
+        if (text.length < 5) { emptyCount++; continue }
+        added += `\n\n----- ${file.name} -----\n${text}`
       } catch (err) {
         flash(`Could not read "${file.name}": ${err instanceof Error ? err.message : 'error'}`, 'err')
       }
@@ -221,10 +221,8 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
     if (added) setQuickFillText((prev) => (prev.trim() ? prev + added : added.trim()))
     setExtractStatus('')
     setExtractingFiles(false)
-    if (imageFilled && !added) flash('✅ Read the image and filled the fields — review below, then Publish.')
-    else if (added && imageFilled) flash('✅ Image filled the fields; document text is in the box — click Extract & Fill for that too.')
-    else if (emptyCount > 0) flash(`${emptyCount} file(s) had no readable text (a scan?) — upload it as an image instead so the AI reads it.`, 'err')
-    else if (added) flash('✅ Text extracted — review it, then click Extract & Fill.')
+    if (emptyCount > 0 && !added) flash(`Couldn't read any text from the file(s).`, 'err')
+    else if (added) flash('✅ Added to the box — review it, then click Extract & Fill.')
   }
 
   // Applies an extracted-fields JSON object onto the form. Shared by the text
@@ -297,6 +295,9 @@ Required JSON structure:
 }
 
 Rules:
+- The content may combine several sources (pasted text + uploaded brochures/price images). Cross-check them.
+- If the SAME value (especially a unit's price) appears more than once with different numbers, prefer the figure from a dated or labelled pricing table (e.g. "Q1 FY27", "Pricing Grid") and the most specific/recent one; ignore clearly older or vaguer figures.
+- Prefer an explicit pricing table over a casual mention when both exist.
 - Create one unit_config entry per distinct unit type mentioned
 - For USPs: prioritise facts that a salesperson can say on a live call to different buyer types
 - Include up to 4 landmarks with realistic distances
@@ -319,10 +320,10 @@ Rules:
     setGeneratingFill(false)
   }
 
-  // Reads a brochure/pricing-table IMAGE with Gemini vision and fills the fields
-  // directly. Far more reliable than client-side OCR, which mangles compressed
-  // table screenshots. A single image stays well within Gemini's free tier.
-  const extractImageWithGemini = async (file: File) => {
+  // Transcribes a brochure/pricing-table IMAGE to plain text via Gemini vision
+  // (reliable on tables, unlike client OCR) and returns it — so it lands in the
+  // Quick Fill box alongside everything else, ready for one combined extract.
+  const transcribeImageWithGemini = async (file: File): Promise<string> => {
     const dataUrl: string = await new Promise((resolve, reject) => {
       const r = new FileReader()
       r.onload = () => resolve(r.result as string)
@@ -330,14 +331,10 @@ Rules:
       r.readAsDataURL(file)
     })
     const base64 = dataUrl.split(',')[1] || ''
-    const raw = await callGemini(
-      extractionPrompt('the attached project image — read ALL text, tables and prices in it carefully'),
-      false,
-      { mimeType: file.type || 'image/jpeg', data: base64 },
-    )
-    const ex = safeJSON(raw)
-    if (!ex) throw new Error('AI could not read the image')
-    applyExtracted(ex)
+    const prompt = `Read the attached image of a real-estate document (brochure, price list, pricing table, floor plan, etc.).
+Output ALL text you can see, EXACTLY as written — every unit type, area (sqft), and price. Preserve table structure: one row per line, columns separated by " | ". Include any title/date on the sheet.
+Output plain text only — no commentary, no markdown.`
+    return await callGemini(prompt, false, { mimeType: file.type || 'image/jpeg', data: base64 })
   }
 
   // ─── Persona pitch generation (Google Search grounded) ─────────────────────
@@ -939,7 +936,7 @@ Write ONLY the pitch script. No labels or preamble.`
                   </label>
                   {extractStatus && <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{extractStatus}</span>}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginBottom: 10 }}>PDF, PowerPoint, Word, images or text — read on your device, only the text is sent to the AI. Images are OCR'd (slower).</div>
+                <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginBottom: 10 }}>PDF, PowerPoint, Word, images or text. Each file's text lands in the box below — upload several, then click Extract &amp; Fill once to read them all together.</div>
 
                 <textarea
                   value={quickFillText}
