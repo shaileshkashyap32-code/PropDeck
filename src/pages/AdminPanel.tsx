@@ -10,6 +10,7 @@ import { ZONES } from '../lib/zones'
 import { PROJECT_STATUSES, RERA_NA_STATUSES, statusMeta } from '../lib/status'
 import { ASSET_KINDS, assetKindMeta, sortAssets, type ProjectAsset } from '../lib/assets'
 import { uploadFileWithProgress } from '../lib/upload'
+import DualRangeSlider from '../components/DualRangeSlider'
 import { extractFileText } from '../lib/extractText'
 import { formatPrice } from '../lib/format'
 
@@ -67,6 +68,12 @@ const EMPTY: FormData = {
 }
 
 const EMPTY_UNIT: UnitConfig = { type: '', price_min: '', price_max: '', sba_min: '', sba_max: '', units_left: '' }
+
+// Bounds for the per-unit price slider: ₹0 to ₹20Cr in ₹1L steps. The number
+// inputs stay available for exact values; the slider is for quick nudging.
+const PRICE_SLIDER_MAX = 200000000
+const PRICE_SLIDER_STEP = 100000
+const UNITS_SLIDER_MAX = 300
 const UNIT_TYPES = ['Studio','1BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Penthouse','Villa','Townhouse','Plot']
 const LM_TYPES = ['Metro','School','Hospital','IT Park','Mall','Airport','Highway','Other']
 
@@ -1050,6 +1057,32 @@ Write ONLY the pitch script. No labels or preamble.`
                         {u.units_left.trim() !== '' ? ` · ${Number(u.units_left) === 0 ? 'Sold out' : `${u.units_left} left`}` : ''}
                       </div>
                     )}
+
+                    {/* Slide the price range up/down — synced with the number inputs above. */}
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-faint)', marginBottom: 8 }}>
+                        <span>Price {formatPrice(Number(u.price_min) || 0)}</span>
+                        <span>{formatPrice(Number(u.price_max || u.price_min) || 0)}</span>
+                      </div>
+                      <DualRangeSlider
+                        min={0} max={PRICE_SLIDER_MAX} step={PRICE_SLIDER_STEP}
+                        valueMin={Number(u.price_min) || 0}
+                        valueMax={Number(u.price_max || u.price_min) || 0}
+                        onChange={(a, b) => { updateUnit(idx, 'price_min', String(a)); updateUnit(idx, 'price_max', String(b)) }}
+                      />
+                    </div>
+
+                    {/* Inventory slider */}
+                    <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-faint)', flexShrink: 0 }}>Units left</span>
+                      <input type="range" min={0} max={UNITS_SLIDER_MAX} step={1}
+                        value={Math.min(Number(u.units_left) || 0, UNITS_SLIDER_MAX)}
+                        onChange={e => updateUnit(idx, 'units_left', e.target.value)}
+                        style={{ flex: 1, accentColor: '#6D28D9' }} />
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 54, textAlign: 'right', flexShrink: 0 }}>
+                        {u.units_left.trim() === '' ? 'not set' : Number(u.units_left) === 0 ? 'Sold out' : `${u.units_left} left`}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
