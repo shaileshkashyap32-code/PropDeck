@@ -10,7 +10,6 @@ import { ZONES } from '../lib/zones'
 import { PROJECT_STATUSES, RERA_NA_STATUSES, statusMeta } from '../lib/status'
 import { ASSET_KINDS, assetKindMeta, sortAssets, type ProjectAsset } from '../lib/assets'
 import { uploadFileWithProgress } from '../lib/upload'
-import DualRangeSlider from '../components/DualRangeSlider'
 import { extractFileText } from '../lib/extractText'
 import { formatPrice } from '../lib/format'
 
@@ -68,12 +67,6 @@ const EMPTY: FormData = {
 }
 
 const EMPTY_UNIT: UnitConfig = { type: '', price_min: '', price_max: '', sba_min: '', sba_max: '', units_left: '' }
-
-// Bounds for the per-unit price slider: ₹0 to ₹20Cr in ₹1L steps. The number
-// inputs stay available for exact values; the slider is for quick nudging.
-const PRICE_SLIDER_MAX = 200000000
-const PRICE_SLIDER_STEP = 100000
-const UNITS_SLIDER_MAX = 300
 const UNIT_TYPES = ['Studio','1BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Penthouse','Villa','Townhouse','Plot']
 const LM_TYPES = ['Metro','School','Hospital','IT Park','Mall','Airport','Highway','Other']
 
@@ -113,6 +106,8 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [addLocForce, setAddLocForce] = useState(false)
   const [formLocWarning, setFormLocWarning] = useState('')
   const [unitConfigs, setUnitConfigs] = useState<UnitConfig[]>([{ ...EMPTY_UNIT }])
+  const [dragUnit, setDragUnit] = useState<number | null>(null)
+  const [dragOverUnit, setDragOverUnit] = useState<number | null>(null)
   const [quickFillText, setQuickFillText] = useState('')
   const [generatingFill, setGeneratingFill] = useState(false)
   const [extractingFiles, setExtractingFiles] = useState(false)
@@ -797,6 +792,14 @@ Write ONLY the pitch script. No labels or preamble.`
     setUnitConfigs(prev => prev.map((u, i) => i === idx ? { ...u, [field]: val } : u))
   const addUnit = () => setUnitConfigs(prev => [...prev, { ...EMPTY_UNIT }])
   const removeUnit = (idx: number) => setUnitConfigs(prev => prev.filter((_, i) => i !== idx))
+  // Drag a unit row by its handle and drop it on another to reorder.
+  const moveUnit = (from: number, to: number) => setUnitConfigs(prev => {
+    if (from === to || from < 0 || to < 0) return prev
+    const next = [...prev]
+    const [item] = next.splice(from, 1)
+    next.splice(to, 0, item)
+    return next
+  })
 
   const resetForm = () => {
     setEditId(null); setForm(EMPTY); setUnitConfigs([{ ...EMPTY_UNIT }])
@@ -1014,8 +1017,25 @@ Write ONLY the pitch script. No labels or preamble.`
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 14 }}>
                   Enter prices in ₹ (e.g. 4900000 = ₹49L · 10000000 = ₹1Cr · 57900000 = ₹5.79Cr) · SBA = Super Built-Up Area in sqft
                 </div>
+                {unitConfigs.length > 1 && (
+                  <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginBottom: 8 }}>Drag the ⠿ handle to reorder — the first unit shows as the project's starting configuration.</div>
+                )}
                 {unitConfigs.map((u, idx) => (
-                  <div key={idx} style={{ background: 'var(--bg-inset)', border: '1px solid rgba(79,70,229,0.15)', borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                  <div key={idx}
+                    onDragOver={e => { if (dragUnit !== null) { e.preventDefault(); setDragOverUnit(idx) } }}
+                    onDragLeave={() => setDragOverUnit(d => (d === idx ? null : d))}
+                    onDrop={() => { if (dragUnit !== null) moveUnit(dragUnit, idx); setDragUnit(null); setDragOverUnit(null) }}
+                    style={{ background: 'var(--bg-inset)', border: `1px solid ${dragOverUnit === idx && dragUnit !== idx ? '#6366F1' : 'rgba(79,70,229,0.15)'}`, borderRadius: 8, padding: 12, marginBottom: 10, opacity: dragUnit === idx ? 0.4 : 1, transition: 'opacity 0.12s' }}>
+                    {unitConfigs.length > 1 && (
+                      <div draggable
+                        onDragStart={() => setDragUnit(idx)}
+                        onDragEnd={() => { setDragUnit(null); setDragOverUnit(null) }}
+                        title="Drag to reorder"
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'grab', marginBottom: 8, color: 'var(--text-faint)', fontSize: 12, userSelect: 'none' }}>
+                        <span style={{ fontSize: 16, letterSpacing: -2 }}>⠿</span>
+                        <span>Unit {idx + 1}{idx === 0 ? ' · starting config' : ''}</span>
+                      </div>
+                    )}
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1.2fr 1fr 1fr 0.8fr 0.8fr 0.7fr 36px', gap: 8, alignItems: 'end' }}>
                       <div>
                         <label style={lbl}>Unit Type *</label>
@@ -1057,32 +1077,6 @@ Write ONLY the pitch script. No labels or preamble.`
                         {u.units_left.trim() !== '' ? ` · ${Number(u.units_left) === 0 ? 'Sold out' : `${u.units_left} left`}` : ''}
                       </div>
                     )}
-
-                    {/* Slide the price range up/down — synced with the number inputs above. */}
-                    <div style={{ marginTop: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-faint)', marginBottom: 8 }}>
-                        <span>Price {formatPrice(Number(u.price_min) || 0)}</span>
-                        <span>{formatPrice(Number(u.price_max || u.price_min) || 0)}</span>
-                      </div>
-                      <DualRangeSlider
-                        min={0} max={PRICE_SLIDER_MAX} step={PRICE_SLIDER_STEP}
-                        valueMin={Number(u.price_min) || 0}
-                        valueMax={Number(u.price_max || u.price_min) || 0}
-                        onChange={(a, b) => { updateUnit(idx, 'price_min', String(a)); updateUnit(idx, 'price_max', String(b)) }}
-                      />
-                    </div>
-
-                    {/* Inventory slider */}
-                    <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-faint)', flexShrink: 0 }}>Units left</span>
-                      <input type="range" min={0} max={UNITS_SLIDER_MAX} step={1}
-                        value={Math.min(Number(u.units_left) || 0, UNITS_SLIDER_MAX)}
-                        onChange={e => updateUnit(idx, 'units_left', e.target.value)}
-                        style={{ flex: 1, accentColor: '#6D28D9' }} />
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 54, textAlign: 'right', flexShrink: 0 }}>
-                        {u.units_left.trim() === '' ? 'not set' : Number(u.units_left) === 0 ? 'Sold out' : `${u.units_left} left`}
-                      </span>
-                    </div>
                   </div>
                 ))}
               </div>
