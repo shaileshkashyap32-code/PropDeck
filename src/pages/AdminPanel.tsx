@@ -105,6 +105,7 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [addLocIsDuplicate, setAddLocIsDuplicate] = useState(false)
   const [addLocForce, setAddLocForce] = useState(false)
   const [formLocWarning, setFormLocWarning] = useState('')
+  const [errFields, setErrFields] = useState<Set<string>>(new Set())
   const [unitConfigs, setUnitConfigs] = useState<UnitConfig[]>([{ ...EMPTY_UNIT }])
   const [dragUnit, setDragUnit] = useState<number | null>(null)
   const [dragOverUnit, setDragOverUnit] = useState<number | null>(null)
@@ -155,7 +156,17 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
     setMsg(m); setMsgType(t); setTimeout(() => setMsg(''), 5000)
   }
 
-  const setF = (k: keyof FormData, v: any) => setForm(f => ({ ...f, [k]: v }))
+  const setF = (k: keyof FormData, v: any) => {
+    setForm(f => ({ ...f, [k]: v }))
+    // Clear a required-field error as soon as the user starts fixing it.
+    if (errFields.has(k)) setErrFields(prev => { const next = new Set(prev); next.delete(k); return next })
+  }
+
+  // Red border + tint + glow for a required field flagged blank on publish.
+  const inpErr = (field: string): React.CSSProperties =>
+    errFields.has(field)
+      ? { ...inp, border: '2px solid #EF4444', background: 'rgba(239,68,68,0.15)', boxShadow: '0 0 0 3px rgba(239,68,68,0.25)' }
+      : inp
 
   // ─── Gemini helper ────────────────────────────────────────────────────────
   // Calls go through our own /api/gemini server function so the API key stays
@@ -657,10 +668,19 @@ Write ONLY the pitch script. No labels or preamble.`
 
   // ─── Save project ─────────────────────────────────────────────────────────
   const save = async () => {
-    if (!form.name.trim() || !form.developer.trim() || !form.location.trim()
-        || !form.rera_number.trim() || !form.status.trim() || !form.possession_date.trim()) {
+    // Required fields, in on-screen order — flag every blank one, then jump to the first.
+    const required: (keyof FormData)[] = ['name', 'developer', 'location', 'rera_number', 'status', 'possession_date']
+    const blanks = required.filter(k => !String(form[k] ?? '').trim())
+    if (blanks.length > 0) {
+      setErrFields(new Set(blanks))
+      const first = document.getElementById('f-' + blanks[0])
+      if (first) {
+        first.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        first.focus({ preventScroll: true })
+      }
       flash('Fill all required fields: Name, Developer, Location, RERA Number, Status, Possession Date. Use "NA" for RERA if pre-launch/resale.', 'err'); return
     }
+    setErrFields(new Set())
     const validConfigs = unitConfigs.filter(u => u.type && u.price_min)
     if (validConfigs.length === 0) {
       flash('Add at least one unit type with a price.', 'err'); return
@@ -969,11 +989,11 @@ Write ONLY the pitch script. No labels or preamble.`
               <div style={card}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 16 }}>① Basic Information</div>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
-                  <div><label style={lbl}>Project Name *</label><input style={inp} value={form.name} onChange={e => setF('name', e.target.value)} placeholder="e.g. Bhartiya Garden Estate Nikoo 7" /></div>
-                  <div><label style={lbl}>Developer *</label><input style={inp} value={form.developer} onChange={e => setF('developer', e.target.value)} placeholder="e.g. Bhartiya City Developers" /></div>
+                  <div><label style={lbl}>Project Name *</label><input id="f-name" style={inpErr('name')} value={form.name} onChange={e => setF('name', e.target.value)} placeholder="e.g. Bhartiya Garden Estate Nikoo 7" /></div>
+                  <div><label style={lbl}>Developer *</label><input id="f-developer" style={inpErr('developer')} value={form.developer} onChange={e => setF('developer', e.target.value)} placeholder="e.g. Bhartiya City Developers" /></div>
                   <div>
                     <label style={lbl}>Location *</label>
-                    <input list="loc-suggestions" style={inp} value={form.location} onChange={e => handleLocationInput(e.target.value)} placeholder="Type or pick a location..." />
+                    <input id="f-location" list="loc-suggestions" style={inpErr('location')} value={form.location} onChange={e => handleLocationInput(e.target.value)} placeholder="Type or pick a location..." />
                     <datalist id="loc-suggestions">{locations.map(l => <option key={l.id} value={l.name} />)}</datalist>
                     {formLocWarning && (
                       <div style={{ marginTop: 6, fontSize: 12, color: '#F59E0B', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -982,11 +1002,12 @@ Write ONLY the pitch script. No labels or preamble.`
                       </div>
                     )}
                   </div>
-                  <div><label style={lbl}>RERA Number *</label><input style={inp} value={form.rera_number} onChange={e => setF('rera_number', e.target.value)} placeholder='RERA no. — or "NA"' /></div>
+                  <div><label style={lbl}>RERA Number *</label><input id="f-rera_number" style={inpErr('rera_number')} value={form.rera_number} onChange={e => setF('rera_number', e.target.value)} placeholder='RERA no. — or "NA"' /></div>
                   <div>
                     <label style={lbl}>Status *</label>
                     <select
-                      style={inp}
+                      id="f-status"
+                      style={inpErr('status')}
                       value={form.status}
                       onChange={e => {
                         const next = e.target.value
@@ -1004,7 +1025,7 @@ Write ONLY the pitch script. No labels or preamble.`
                       ))}
                     </select>
                   </div>
-                  <div><label style={lbl}>Possession Date *</label><input style={inp} value={form.possession_date} onChange={e => setF('possession_date', e.target.value)} placeholder="e.g. Dec 2026 · 2040 if unknown" /></div>
+                  <div><label style={lbl}>Possession Date *</label><input id="f-possession_date" style={inpErr('possession_date')} value={form.possession_date} onChange={e => setF('possession_date', e.target.value)} placeholder="e.g. Dec 2026 · 2040 if unknown" /></div>
                 </div>
               </div>
 
