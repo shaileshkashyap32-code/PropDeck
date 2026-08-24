@@ -4,7 +4,7 @@ import AppShell from '../components/AppShell';
 import UserMenu, { buildAccountMenu } from '../components/UserMenu';
 import BrandLogo from '../components/BrandLogo';
 import GlobalSearch from '../components/GlobalSearch';
-import { formatPrice } from '../lib/format';
+import { formatPrice, formatRate } from '../lib/format';
 import { statusMeta } from '../lib/status';
 import { assetKindMeta, sortAssets, type ProjectAsset } from '../lib/assets';
 import ThemeToggle from '../components/ThemeToggle';
@@ -184,6 +184,32 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
     return '—'
   }
 
+  // ₹/sqft for a single unit row (price ÷ SBA). Returns a label, or null if SBA is missing.
+  const unitRate = (u: { price_min: number; price_max: number; sba_min: number | null; sba_max: number | null }) => {
+    if (!u.sba_min || !u.price_min) return null;
+    const lo = u.price_min / u.sba_min;
+    const hi = (u.price_max || u.price_min) / (u.sba_max || u.sba_min);
+    const min = Math.min(lo, hi), max = Math.max(lo, hi);
+    // Collapse to one figure when both ends round to the same ₹100 step.
+    return Math.round(min / 100) === Math.round(max / 100)
+      ? formatRate(min)
+      : `${formatRate(min)} – ${formatRate(max)}`.replace(/\/sqft –/, ' –');
+  };
+
+  // Project-wide ₹/sqft summary for the stats box — spans the cheapest and dearest unit rates.
+  const getRateLabel = () => {
+    const units = (project?.unit_configs || []).filter(u => u.sba_min && u.price_min);
+    if (units.length === 0) return null;
+    const rates = units.flatMap(u => [
+      u.price_min / u.sba_min!,
+      (u.price_max || u.price_min) / (u.sba_max || u.sba_min!),
+    ]);
+    const min = Math.min(...rates), max = Math.max(...rates);
+    return Math.round(min / 100) === Math.round(max / 100)
+      ? formatRate(min)
+      : `${formatRate(min).replace('/sqft', '')} – ${formatRate(max)}`;
+  };
+
   // Unit rows for table: use unit_configs if available, else fall back to bhk_types
   const getUnitRows = () => {
     if (project?.unit_configs?.length) return project.unit_configs
@@ -261,13 +287,14 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
           </div>
 
           {/* ── Stats strip (CHANGE 1: Carpet Area → Super Built-Up Area) ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 24 }}>
             {[
               ['Price', `${formatPrice(project.price_min)} – ${formatPrice(project.price_max)}`],
+              ['Rate', getRateLabel()],
               ['BHK', project.bhk_types?.join(', ') || '—'],
               ['Super Built-Up Area', getSbaLabel()],
               ['Possession', project.possession_date || '—'],
-            ].map(([l, v]) => (
+            ].filter(([, v]) => v).map(([l, v]) => (
               <div key={l} style={{ background: 'rgba(79,70,229,0.12)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ fontSize: 10, color: '#6366F1', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>{l}</div>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div>
@@ -299,11 +326,16 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
               {/* ── CHANGE 2: Unit table — per-type pricing + SBA ── */}
               {getUnitRows().length > 0 && (() => {
                 const rows = getUnitRows();
-                // Only surface the column when the admin is actually tracking it.
+                // Only surface these columns when the admin is actually tracking them.
                 const hasInventory = rows.some((u: UnitConfig) => u.units_left != null);
-                const headers = hasInventory
-                  ? ['Type', 'Super Built-Up Area (SBA)', 'Price Range', 'Availability']
-                  : ['Type', 'Super Built-Up Area (SBA)', 'Price Range'];
+                const hasRate = rows.some((u: UnitConfig) => u.sba_min && u.price_min);
+                const headers = [
+                  'Type',
+                  'Super Built-Up Area (SBA)',
+                  ...(hasRate ? ['Rate (₹/sqft)'] : []),
+                  'Price Range',
+                  ...(hasInventory ? ['Availability'] : []),
+                ];
                 return (
                 <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -323,6 +355,9 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
                               ? `${u.sba_min}${u.sba_max && u.sba_max !== u.sba_min ? `–${u.sba_max}` : ''} sqft`
                               : '—'}
                           </td>
+                          {hasRate && (
+                            <td style={{ padding: '10px 14px', color: 'var(--text-dim)' }}>{unitRate(u) || '—'}</td>
+                          )}
                           <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
                             {formatPrice(u.price_min)}{u.price_max && u.price_max !== u.price_min ? ` – ${formatPrice(u.price_max)}` : ''}
                           </td>
@@ -465,7 +500,10 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
         <div style={{ position: 'sticky', top: 24 }}>
           <div style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 18, marginBottom: 14 }}>
             <div style={{ fontSize: 24, fontWeight: 700, background: 'linear-gradient(90deg,var(--brand-from),var(--brand-to))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 4 }}>{formatPrice(project.price_min)}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 14 }}>Starting price onwards</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: getRateLabel() ? 8 : 14 }}>Starting price onwards</div>
+            {getRateLabel() && (
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 14 }}>{getRateLabel()}</div>
+            )}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {project.bhk_types?.map(b => (
                 <span key={b} style={{ background: 'rgba(99,102,241,0.2)', color: 'var(--text-muted)', fontSize: 11, padding: '3px 9px', borderRadius: 4 }}>{b}</span>

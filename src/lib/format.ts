@@ -13,3 +13,11 @@ export function formatPrice(n: number): string {
   if (n >= 100000) return `₹${(n / 100000).toFixed(0)}L`
   return `₹${n}`
 }
+
+/**
+ * Per-sqft rate with Indian digit grouping, e.g. "₹13,000/sqft". Rounded to a
+ * clean ₹100 step so derived rates (price ÷ area) don't show noisy figures.
+ */
+export function formatRate(n: number): string {
+  return `₹${(Math.round(n / 100) * 100).toLocaleString('en-IN')}/sqft`
+}

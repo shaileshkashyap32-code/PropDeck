@@ -107,6 +107,7 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [formLocWarning, setFormLocWarning] = useState('')
   const [errFields, setErrFields] = useState<Set<string>>(new Set())
   const [unitConfigs, setUnitConfigs] = useState<UnitConfig[]>([{ ...EMPTY_UNIT }])
+  const [psfRate, setPsfRate] = useState('')
   const [dragUnit, setDragUnit] = useState<number | null>(null)
   const [dragOverUnit, setDragOverUnit] = useState<number | null>(null)
   const [quickFillText, setQuickFillText] = useState('')
@@ -810,6 +811,23 @@ Write ONLY the pitch script. No labels or preamble.`
 
   const updateUnit = (idx: number, field: keyof UnitConfig, val: string) =>
     setUnitConfigs(prev => prev.map((u, i) => i === idx ? { ...u, [field]: val } : u))
+
+  // Fill every unit's price from one project-wide ₹/sqft rate × that unit's SBA range.
+  // Prices stay editable afterwards, so this is a starting point, not a lock.
+  const applyPsfRate = () => {
+    const rate = Number(psfRate)
+    if (!rate || rate <= 0) { flash('Enter a valid ₹/sqft rate first (e.g. 10000).', 'err'); return }
+    const eligible = unitConfigs.filter(u => Number(u.sba_min) > 0)
+    if (eligible.length === 0) { flash('Add SBA Min to at least one unit — price is rate × SBA.', 'err'); return }
+    setUnitConfigs(prev => prev.map(u => {
+      const sbaMin = Number(u.sba_min)
+      if (!(sbaMin > 0)) return u
+      const sbaMax = Number(u.sba_max) > 0 ? Number(u.sba_max) : sbaMin
+      return { ...u, price_min: String(Math.round(rate * sbaMin)), price_max: String(Math.round(rate * sbaMax)) }
+    }))
+    const skipped = unitConfigs.length - eligible.length
+    flash(`Applied ₹${rate.toLocaleString('en-IN')}/sqft to ${eligible.length} unit${eligible.length > 1 ? 's' : ''}.${skipped > 0 ? ` ${skipped} skipped (no SBA).` : ''}`)
+  }
   const addUnit = () => setUnitConfigs(prev => [...prev, { ...EMPTY_UNIT }])
   const removeUnit = (idx: number) => setUnitConfigs(prev => prev.filter((_, i) => i !== idx))
   // Drag a unit row by its handle and drop it on another to reorder.
@@ -1037,6 +1055,21 @@ Write ONLY the pitch script. No labels or preamble.`
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 14 }}>
                   Enter prices in ₹ (e.g. 4900000 = ₹49L · 10000000 = ₹1Cr · 57900000 = ₹5.79Cr) · SBA = Super Built-Up Area in sqft
+                </div>
+                {/* ₹/sqft calculator — fills every unit's price from rate × its SBA. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'rgba(79,70,229,0.10)', border: '1px solid rgba(79,70,229,0.25)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>⚡ Rate calculator</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>₹</span>
+                    <input type="number" value={psfRate} onChange={e => setPsfRate(e.target.value)} placeholder="10000"
+                      style={{ ...inp, width: 110 }} />
+                    <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>/sqft</span>
+                  </div>
+                  <button onClick={applyPsfRate}
+                    style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 6, padding: '8px 16px', color: '#FFFFFF', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>
+                    Apply to all units
+                  </button>
+                  <span style={{ fontSize: 11, color: 'var(--text-fainter)' }}>Fills each unit's price = rate × its SBA. Needs SBA filled. Prices stay editable after.</span>
                 </div>
                 {unitConfigs.length > 1 && (
                   <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginBottom: 8 }}>Drag the ⠿ handle to reorder — the first unit shows as the project's starting configuration.</div>
