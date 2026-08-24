@@ -184,18 +184,6 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
     return '—'
   }
 
-  // ₹/sqft for a single unit row (price ÷ SBA). Returns a label, or null if SBA is missing.
-  const unitRate = (u: { price_min: number; price_max: number; sba_min: number | null; sba_max: number | null }) => {
-    if (!u.sba_min || !u.price_min) return null;
-    const lo = u.price_min / u.sba_min;
-    const hi = (u.price_max || u.price_min) / (u.sba_max || u.sba_min);
-    const min = Math.min(lo, hi), max = Math.max(lo, hi);
-    // Collapse to one figure when both ends round to the same ₹100 step.
-    return Math.round(min / 100) === Math.round(max / 100)
-      ? formatRate(min)
-      : `${formatRate(min)} – ${formatRate(max)}`.replace(/\/sqft –/, ' –');
-  };
-
   // Project-wide ₹/sqft summary for the stats box — spans the cheapest and dearest unit rates.
   const getRateLabel = () => {
     const units = (project?.unit_configs || []).filter(u => u.sba_min && u.price_min);
@@ -328,11 +316,9 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
                 const rows = getUnitRows();
                 // Only surface these columns when the admin is actually tracking them.
                 const hasInventory = rows.some((u: UnitConfig) => u.units_left != null);
-                const hasRate = rows.some((u: UnitConfig) => u.sba_min && u.price_min);
                 const headers = [
                   'Type',
                   'Super Built-Up Area (SBA)',
-                  ...(hasRate ? ['Rate (₹/sqft)'] : []),
                   'Price Range',
                   ...(hasInventory ? ['Availability'] : []),
                 ];
@@ -355,9 +341,6 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
                               ? `${u.sba_min}${u.sba_max && u.sba_max !== u.sba_min ? `–${u.sba_max}` : ''} sqft`
                               : '—'}
                           </td>
-                          {hasRate && (
-                            <td style={{ padding: '10px 14px', color: 'var(--text-dim)' }}>{unitRate(u) || '—'}</td>
-                          )}
                           <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
                             {formatPrice(u.price_min)}{u.price_max && u.price_max !== u.price_min ? ` – ${formatPrice(u.price_max)}` : ''}
                           </td>
