@@ -42,6 +42,7 @@ interface UnitConfig {
   sba_min: string
   sba_max: string
   units_left: string   // '' = availability not tracked; '0' = sold out
+  rate: string         // editor-only ₹/sqft helper; not persisted (price is derived from it)
 }
 
 interface FormData {
@@ -66,7 +67,21 @@ const EMPTY: FormData = {
   lm4_name: '', lm4_dist: '', lm4_type: 'IT Park',
 }
 
-const EMPTY_UNIT: UnitConfig = { type: '', price_min: '', price_max: '', sba_min: '', sba_max: '', units_left: '' }
+const EMPTY_UNIT: UnitConfig = { type: '', price_min: '', price_max: '', sba_min: '', sba_max: '', units_left: '', rate: '' }
+
+// Given a unit's ₹/sqft rate + SBA range, derive its price range. No rate/SBA → prices untouched.
+const withDerivedPrice = (u: UnitConfig): UnitConfig => {
+  const rate = Number(u.rate), sbaMin = Number(u.sba_min)
+  if (!(rate > 0) || !(sbaMin > 0)) return u
+  const sbaMax = Number(u.sba_max) > 0 ? Number(u.sba_max) : sbaMin
+  return { ...u, price_min: String(Math.round(rate * sbaMin)), price_max: String(Math.round(rate * sbaMax)) }
+}
+
+// Back-compute a display rate from an existing unit's price ÷ SBA, rounded to a clean ₹100.
+const rateFromUnit = (priceMin: any, sbaMin: any): string => {
+  const p = Number(priceMin), s = Number(sbaMin)
+  return p > 0 && s > 0 ? String(Math.round(p / s / 100) * 100) : ''
+}
 const UNIT_TYPES = ['Studio','1BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Penthouse','Villa','Townhouse','Plot']
 const LM_TYPES = ['Metro','School','Hospital','IT Park','Mall','Airport','Highway','Other']
 
@@ -268,6 +283,7 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
         sba_min: String(u.sba_min || ''),
         sba_max: String(u.sba_max || ''),
         units_left: u.units_left === 0 || u.units_left ? String(u.units_left) : '',
+        rate: rateFromUnit(u.price_min, u.sba_min),
       })))
     }
   }
@@ -646,11 +662,12 @@ Write ONLY the pitch script. No labels or preamble.`
         type: u.type || '', price_min: String(u.price_min || ''),
         price_max: String(u.price_max || ''), sba_min: String(u.sba_min || ''), sba_max: String(u.sba_max || ''),
         units_left: u.units_left === 0 || u.units_left ? String(u.units_left) : '',
+        rate: rateFromUnit(u.price_min, u.sba_min),
       })))
     } else if (Array.isArray(p.bhk_types) && p.bhk_types.length > 0) {
       setUnitConfigs(p.bhk_types.map((type: string) => ({
         type, price_min: String(p.price_min || ''), price_max: String(p.price_max || ''),
-        sba_min: '', sba_max: '', units_left: '',
+        sba_min: '', sba_max: '', units_left: '', rate: '',
       })))
     } else {
       setUnitConfigs([{ ...EMPTY_UNIT }])
@@ -810,21 +827,21 @@ Write ONLY the pitch script. No labels or preamble.`
   }
 
   const updateUnit = (idx: number, field: keyof UnitConfig, val: string) =>
-    setUnitConfigs(prev => prev.map((u, i) => i === idx ? { ...u, [field]: val } : u))
+    setUnitConfigs(prev => prev.map((u, i) => {
+      if (i !== idx) return u
+      const next = { ...u, [field]: val }
+      // Editing the rate or the SBA re-derives this unit's price range.
+      return (field === 'rate' || field === 'sba_min' || field === 'sba_max') ? withDerivedPrice(next) : next
+    }))
 
-  // Fill every unit's price from one project-wide ₹/sqft rate × that unit's SBA range.
-  // Prices stay editable afterwards, so this is a starting point, not a lock.
+  // Bulk shortcut: stamp one ₹/sqft rate onto every unit and derive each price from its SBA.
+  // Per-unit rate fields can still be tweaked afterwards, so this is a starting point, not a lock.
   const applyPsfRate = () => {
     const rate = Number(psfRate)
     if (!rate || rate <= 0) { flash('Enter a valid ₹/sqft rate first (e.g. 10000).', 'err'); return }
     const eligible = unitConfigs.filter(u => Number(u.sba_min) > 0)
     if (eligible.length === 0) { flash('Add SBA Min to at least one unit — price is rate × SBA.', 'err'); return }
-    setUnitConfigs(prev => prev.map(u => {
-      const sbaMin = Number(u.sba_min)
-      if (!(sbaMin > 0)) return u
-      const sbaMax = Number(u.sba_max) > 0 ? Number(u.sba_max) : sbaMin
-      return { ...u, price_min: String(Math.round(rate * sbaMin)), price_max: String(Math.round(rate * sbaMax)) }
-    }))
+    setUnitConfigs(prev => prev.map(u => Number(u.sba_min) > 0 ? withDerivedPrice({ ...u, rate: String(rate) }) : u))
     const skipped = unitConfigs.length - eligible.length
     flash(`Applied ₹${rate.toLocaleString('en-IN')}/sqft to ${eligible.length} unit${eligible.length > 1 ? 's' : ''}.${skipped > 0 ? ` ${skipped} skipped (no SBA).` : ''}`)
   }
@@ -1058,7 +1075,7 @@ Write ONLY the pitch script. No labels or preamble.`
                 </div>
                 {/* ₹/sqft calculator — fills every unit's price from rate × its SBA. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'rgba(79,70,229,0.10)', border: '1px solid rgba(79,70,229,0.25)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>⚡ Rate calculator</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>⚡ Bulk rate</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>₹</span>
                     <input type="number" value={psfRate} onChange={e => setPsfRate(e.target.value)} placeholder="10000"
@@ -1069,7 +1086,7 @@ Write ONLY the pitch script. No labels or preamble.`
                     style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 6, padding: '8px 16px', color: '#FFFFFF', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>
                     Apply to all units
                   </button>
-                  <span style={{ fontSize: 11, color: 'var(--text-fainter)' }}>Fills each unit's price = rate × its SBA. Needs SBA filled. Prices stay editable after.</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-fainter)' }}>Sets the same ₹/sqft on every unit. For different rates per type, use the ₹/sqft field on each row below.</span>
                 </div>
                 {unitConfigs.length > 1 && (
                   <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginBottom: 8 }}>Drag the ⠿ handle to reorder — the first unit shows as the project's starting configuration.</div>
@@ -1090,7 +1107,7 @@ Write ONLY the pitch script. No labels or preamble.`
                         <span>Unit {idx + 1}{idx === 0 ? ' · starting config' : ''}</span>
                       </div>
                     )}
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1.2fr 1fr 1fr 0.8fr 0.8fr 0.7fr 36px', gap: 8, alignItems: 'end' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 0.75fr 0.75fr 0.85fr 1fr 1fr 0.7fr 36px', gap: 8, alignItems: 'end' }}>
                       <div>
                         <label style={lbl}>Unit Type *</label>
                         <select style={inp} value={u.type} onChange={e => updateUnit(idx, 'type', e.target.value)}>
@@ -1099,20 +1116,24 @@ Write ONLY the pitch script. No labels or preamble.`
                         </select>
                       </div>
                       <div>
-                        <label style={lbl}>Price Min (₹) *</label>
-                        <input style={inp} type="number" value={u.price_min} onChange={e => updateUnit(idx, 'price_min', e.target.value)} placeholder="4900000" />
-                      </div>
-                      <div>
-                        <label style={lbl}>Price Max (₹)</label>
-                        <input style={inp} type="number" value={u.price_max} onChange={e => updateUnit(idx, 'price_max', e.target.value)} placeholder="8800000" />
-                      </div>
-                      <div>
                         <label style={lbl}>SBA Min (sqft)</label>
                         <input style={inp} type="number" value={u.sba_min} onChange={e => updateUnit(idx, 'sba_min', e.target.value)} placeholder="650" />
                       </div>
                       <div>
                         <label style={lbl}>SBA Max (sqft)</label>
                         <input style={inp} type="number" value={u.sba_max} onChange={e => updateUnit(idx, 'sba_max', e.target.value)} placeholder="1200" />
+                      </div>
+                      <div>
+                        <label style={lbl}>₹/sqft</label>
+                        <input style={inp} type="number" value={u.rate} onChange={e => updateUnit(idx, 'rate', e.target.value)} placeholder="11000" title="Enter rate + SBA and the price range fills automatically" />
+                      </div>
+                      <div>
+                        <label style={lbl}>Price Min (₹) *</label>
+                        <input style={inp} type="number" value={u.price_min} onChange={e => updateUnit(idx, 'price_min', e.target.value)} placeholder="4900000" />
+                      </div>
+                      <div>
+                        <label style={lbl}>Price Max (₹)</label>
+                        <input style={inp} type="number" value={u.price_max} onChange={e => updateUnit(idx, 'price_max', e.target.value)} placeholder="8800000" />
                       </div>
                       <div>
                         <label style={lbl}>Units left</label>
@@ -1128,6 +1149,7 @@ Write ONLY the pitch script. No labels or preamble.`
                       <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 6 }}>
                         → {u.type || 'Unit'}: {formatPrice(Number(u.price_min))}{u.price_max && u.price_max !== u.price_min ? `–${formatPrice(Number(u.price_max))}` : ''}
                         {u.sba_min ? ` · ${u.sba_min}${u.sba_max && u.sba_max !== u.sba_min ? `–${u.sba_max}` : ''} sqft SBA` : ''}
+                        {Number(u.rate) > 0 ? ` · ₹${Number(u.rate).toLocaleString('en-IN')}/sqft` : ''}
                         {u.units_left.trim() !== '' ? ` · ${Number(u.units_left) === 0 ? 'Sold out' : `${u.units_left} left`}` : ''}
                       </div>
                     )}
