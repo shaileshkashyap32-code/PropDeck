@@ -672,6 +672,9 @@ Write ONLY the pitch script. No labels or preamble.`
     } else {
       setUnitConfigs([{ ...EMPTY_UNIT }])
     }
+    // Pre-fill the project's ₹/sqft from the first unit that has both price & SBA.
+    const rateUnit = (p.unit_configs || []).find((u: any) => Number(u.price_min) > 0 && Number(u.sba_min) > 0)
+    setPsfRate(rateUnit ? rateFromUnit(rateUnit.price_min, rateUnit.sba_min) : '')
     setFormLocWarning(''); setQuickFillText(''); setEditId(p.id); setSection('add')
     setAssetKind(ASSET_KINDS[0].key); setAssetLabel(''); setAssetUrl('')
     loadAssets(p.id)
@@ -769,7 +772,7 @@ Write ONLY the pitch script. No labels or preamble.`
       : '✅ Project published! AI persona pitches are generating in the background.')
 
     setForm(EMPTY); setEditId(null); setFormLocWarning('')
-    setUnitConfigs([{ ...EMPTY_UNIT }]); setQuickFillText('')
+    setUnitConfigs([{ ...EMPTY_UNIT }]); setQuickFillText(''); setPsfRate('')
     loadProjects(); setSection('projects')
 
     // Fire-and-forget: not awaited, so the UI is already back on the projects
@@ -857,7 +860,7 @@ Write ONLY the pitch script. No labels or preamble.`
   })
 
   const resetForm = () => {
-    setEditId(null); setForm(EMPTY); setUnitConfigs([{ ...EMPTY_UNIT }])
+    setEditId(null); setForm(EMPTY); setUnitConfigs([{ ...EMPTY_UNIT }]); setPsfRate('')
     setFormLocWarning(''); setQuickFillText('')
     setAssets([]); setAssetKind(ASSET_KINDS[0].key); setAssetLabel(''); setAssetUrl('')
   }
@@ -1073,20 +1076,24 @@ Write ONLY the pitch script. No labels or preamble.`
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 14 }}>
                   Enter prices in ₹ (e.g. 4900000 = ₹49L · 10000000 = ₹1Cr · 57900000 = ₹5.79Cr) · SBA = Super Built-Up Area in sqft
                 </div>
-                {/* ₹/sqft calculator — fills every unit's price from rate × its SBA. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'rgba(79,70,229,0.10)', border: '1px solid rgba(79,70,229,0.25)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>⚡ Bulk rate</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>₹</span>
-                    <input type="number" value={psfRate} onChange={e => setPsfRate(e.target.value)} placeholder="10000"
-                      style={{ ...inp, width: 110 }} />
-                    <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>/sqft</span>
+                {/* Project rate — one ₹/sqft that derives every unit's price range (Bangalore = SBA × rate). */}
+                <div style={{ background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(79,70,229,0.35)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-bright)', marginBottom: 4 }}>💰 Price per sq.ft (this project)</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 10 }}>
+                    Enter one ₹/sqft rate — each unit's price fills as <b>SBA × rate</b> (e.g. 600–700 sqft @ ₹13,000 → ₹78L–₹91L). Prices stay editable below.
                   </div>
-                  <button onClick={applyPsfRate}
-                    style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 6, padding: '8px 16px', color: '#FFFFFF', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>
-                    Apply to all units
-                  </button>
-                  <span style={{ fontSize: 11, color: 'var(--text-fainter)' }}>Sets the same ₹/sqft on every unit. For different rates per type, use the ₹/sqft field on each row below.</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 15, color: 'var(--text-muted)' }}>₹</span>
+                      <input type="number" value={psfRate} onChange={e => setPsfRate(e.target.value)} placeholder="13000"
+                        style={{ ...inp, width: 130, fontSize: 16, fontWeight: 600 }} />
+                      <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>/sqft</span>
+                    </div>
+                    <button onClick={applyPsfRate}
+                      style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 6, padding: '9px 18px', color: '#FFFFFF', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+                      Apply to all units
+                    </button>
+                  </div>
                 </div>
                 {unitConfigs.length > 1 && (
                   <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginBottom: 8 }}>Drag the ⠿ handle to reorder — the first unit shows as the project's starting configuration.</div>
@@ -1107,7 +1114,7 @@ Write ONLY the pitch script. No labels or preamble.`
                         <span>Unit {idx + 1}{idx === 0 ? ' · starting config' : ''}</span>
                       </div>
                     )}
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 0.75fr 0.75fr 0.85fr 1fr 1fr 0.7fr 36px', gap: 8, alignItems: 'end' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1.1fr 0.85fr 0.85fr 1fr 1fr 0.7fr 36px', gap: 8, alignItems: 'end' }}>
                       <div>
                         <label style={lbl}>Unit Type *</label>
                         <select style={inp} value={u.type} onChange={e => updateUnit(idx, 'type', e.target.value)}>
@@ -1122,10 +1129,6 @@ Write ONLY the pitch script. No labels or preamble.`
                       <div>
                         <label style={lbl}>SBA Max (sqft)</label>
                         <input style={inp} type="number" value={u.sba_max} onChange={e => updateUnit(idx, 'sba_max', e.target.value)} placeholder="1200" />
-                      </div>
-                      <div>
-                        <label style={lbl}>₹/sqft</label>
-                        <input style={inp} type="number" value={u.rate} onChange={e => updateUnit(idx, 'rate', e.target.value)} placeholder="11000" title="Enter rate + SBA and the price range fills automatically" />
                       </div>
                       <div>
                         <label style={lbl}>Price Min (₹) *</label>
