@@ -129,6 +129,7 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
   const [details, setDetails] = useState('');
   const [assets, setAssets] = useState<ProjectAsset[]>([]);
   const [copied, setCopied] = useState(false);
+  const [distDest, setDistDest] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -270,6 +271,23 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
     .map(type => { const g = lmGroups.find(x => x.type === type); return g ? { type, item: g.items[0] } : null; })
     .filter((x): x is { type: string; item: Landmark } => x != null)
     .slice(0, 3);
+
+  // ── Distance checker: open Google Maps directions from the project to any place ──
+  // Origin = precise lat,lng from the saved Maps URL if present, else the project name + location.
+  const mapOrigin = (): string => {
+    const url = project.google_maps_url || '';
+    const at = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (at) return `${at[1]},${at[2]}`;
+    const q = url.match(/[?&](?:q|query|destination)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (q) return `${q[1]},${q[2]}`;
+    return `${project.name}, ${project.location}, Bangalore`;
+  };
+  const checkDistance = () => {
+    const dest = distDest.trim();
+    if (!dest) return;
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(mapOrigin())}&destination=${encodeURIComponent(dest)}`;
+    window.open(url, '_blank', 'noopener');
+  };
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
   return (
@@ -587,6 +605,25 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
               </div>
             );
           })()}
+
+          {/* Distance checker — for on-call "how far is X from here?" questions */}
+          <div style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 16, marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>📏 Distance from project</div>
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 10 }}>Type where the client is asking about — opens the route in Google Maps.</div>
+            <input
+              value={distDest}
+              onChange={e => setDistDest(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') checkDistance(); }}
+              placeholder="e.g. Manyata Tech Park"
+              style={{ width: '100%', background: 'rgba(79,70,229,0.12)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+            />
+            <button
+              onClick={checkDistance}
+              disabled={!distDest.trim()}
+              style={{ width: '100%', background: distDest.trim() ? 'linear-gradient(135deg,#4F46E5,#9333EA)' : 'var(--border)', border: 'none', borderRadius: 8, padding: '9px 12px', color: distDest.trim() ? '#fff' : 'var(--text-faint)', fontWeight: 600, cursor: distDest.trim() ? 'pointer' : 'default', fontSize: 13 }}>
+              Check distance ↗
+            </button>
+          </div>
 
           {project.google_maps_url && (
             <a href={project.google_maps_url} target="_blank" rel="noreferrer"
