@@ -170,19 +170,6 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
   };
 
   // ── Derived values ─────────────────────────────────────────────────────────
-  // SBA summary for stats strip
-  const getSbaLabel = () => {
-    if (project?.unit_configs?.length) {
-      const withSba = project.unit_configs.filter(u => u.sba_min)
-      if (withSba.length === 0) return '—'
-      const min = Math.min(...withSba.map(u => u.sba_min!))
-      const max = Math.max(...withSba.map(u => u.sba_max || u.sba_min!))
-      return min === max ? `${min} sqft` : `${min}–${max} sqft`
-    }
-    if (project?.carpet_area_min)
-      return `${project.carpet_area_min}–${project.carpet_area_max} sqft`
-    return '—'
-  }
 
   // Project-wide ₹/sqft summary for the stats box — spans the cheapest and dearest unit rates.
   const getRateLabel = () => {
@@ -274,13 +261,12 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
             <div style={{ color: 'var(--text-dim)', fontSize: 14 }}>📍 {project.location}</div>
           </div>
 
-          {/* ── Stats strip (CHANGE 1: Carpet Area → Super Built-Up Area) ── */}
+          {/* ── Stats strip (SBA box removed — SBA is shown per-unit in the table below) ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 24 }}>
             {[
               ['Price', `${formatPrice(project.price_min)} – ${formatPrice(project.price_max)}`],
               ['Rate', getRateLabel()],
               ['BHK', project.bhk_types?.join(', ') || '—'],
-              ['Super Built-Up Area', getSbaLabel()],
               ['Possession', project.possession_date || '—'],
             ].filter(([, v]) => v).map(([l, v]) => (
               <div key={l} style={{ background: 'rgba(79,70,229,0.12)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
@@ -290,9 +276,9 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
             ))}
           </div>
 
-          {/* Tabs */}
+          {/* Tabs — Pitch Script tab hidden for now (kept in code, re-add to this list to restore) */}
           <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 10, padding: 4, border: '1px solid var(--border)', marginBottom: 22, gap: 3 }}>
-            {[['overview','📋 Overview'],['landmarks','📍 Landmarks'],['pitch','🎯 Pitch Script']].map(([t, l]) => (
+            {[['overview','📋 Overview'],['landmarks','📍 Landmarks']].map(([t, l]) => (
               <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === t ? 600 : 400, background: tab === t ? 'linear-gradient(135deg,#4F46E5,#9333EA)' : 'transparent', color: tab === t ? 'white' : 'var(--text-faint)' }}>{l}</button>
             ))}
           </div>
