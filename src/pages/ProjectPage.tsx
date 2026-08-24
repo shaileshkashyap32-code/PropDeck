@@ -276,9 +276,12 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
   // Origin = precise lat,lng from the saved Maps URL if present, else the project name + location.
   const mapOrigin = (): string => {
     const url = project.google_maps_url || '';
+    // Most accurate: the exact place pin (!3d<lat>!4d<lng>).
+    const pin = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+    if (pin) return `${pin[1]},${pin[2]}`;
     const at = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
     if (at) return `${at[1]},${at[2]}`;
-    const q = url.match(/[?&](?:q|query|destination)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    const q = url.match(/[?&](?:q|query|destination|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/);
     if (q) return `${q[1]},${q[2]}`;
     return `${project.name}, ${project.location}, Bangalore`;
   };

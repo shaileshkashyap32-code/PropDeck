@@ -118,6 +118,8 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [unitConfigs, setUnitConfigs] = useState<UnitConfig[]>([{ ...EMPTY_UNIT }])
   const [psfRate, setPsfRate] = useState('')
   const [landmarks, setLandmarks] = useState<LandmarkItem[]>([])
+  const [mapResolving, setMapResolving] = useState(false)
+  const [mapPin, setMapPin] = useState('')
   const [dragUnit, setDragUnit] = useState<number | null>(null)
   const [dragOverUnit, setDragOverUnit] = useState<number | null>(null)
   const [quickFillText, setQuickFillText] = useState('')
@@ -836,6 +838,32 @@ Write ONLY the pitch script. No labels or preamble.`
     const skipped = unitConfigs.length - eligible.length
     flash(`Applied ₹${rate.toLocaleString('en-IN')}/sqft to ${eligible.length} unit${eligible.length > 1 ? 's' : ''}.${skipped > 0 ? ` ${skipped} skipped (no SBA).` : ''}`)
   }
+  // Expand a pasted Google Maps link (incl. short share links) to its exact pin,
+  // then store the resolved URL so the project's distance checker is precise.
+  const fetchExactLocation = async () => {
+    const url = form.google_maps_url.trim()
+    if (!url) { flash('Paste a Google Maps link first.', 'err'); return }
+    setMapResolving(true); setMapPin('')
+    try {
+      const r = await fetch('/api/resolve-maps', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const data = await r.json()
+      if (data.lat != null && data.lng != null) {
+        if (data.url) setF('google_maps_url', data.url)
+        setMapPin(`📍 Pinned at ${Number(data.lat).toFixed(5)}, ${Number(data.lng).toFixed(5)}`)
+        flash('Exact location captured.')
+      } else {
+        setMapPin('⚠ Couldn\'t read coordinates — open the place in Google Maps and paste the full link (the one with @lat,lng).')
+      }
+    } catch {
+      flash('Could not resolve the link — check the URL and try again.', 'err')
+    } finally {
+      setMapResolving(false)
+    }
+  }
+
   const addLandmark = () => setLandmarks(prev => [...prev, { name: '', distance: '', type: LM_TYPES[0] }])
   const updateLandmark = (idx: number, field: keyof LandmarkItem, val: string) =>
     setLandmarks(prev => prev.map((l, i) => i === idx ? { ...l, [field]: val } : l))
@@ -1232,9 +1260,17 @@ Write ONLY the pitch script. No labels or preamble.`
                   <input style={{ ...inp, fontSize: 12 }} value={form.image_url} onChange={e => setF('image_url', e.target.value)} placeholder="https://images.unsplash.com/..." />
                 </div>
                 <div>
-                  <label style={lbl}>Google Maps Embed URL</label>
-                  <input style={inp} value={form.google_maps_url} onChange={e => setF('google_maps_url', e.target.value)} placeholder="https://maps.google.com/..." />
-                  <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginTop: 5 }}>Get embed URL: Google Maps → Share → Embed a map → copy the src value</div>
+                  <label style={lbl}>Google Maps location link</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input style={{ ...inp, flex: 1 }} value={form.google_maps_url} onChange={e => { setF('google_maps_url', e.target.value); setMapPin('') }} placeholder="Paste any Google Maps link — place or share link" />
+                    <button onClick={fetchExactLocation} disabled={mapResolving || !form.google_maps_url.trim()}
+                      style={{ background: form.google_maps_url.trim() ? 'linear-gradient(135deg,#4F46E5,#9333EA)' : 'var(--border)', border: 'none', borderRadius: 8, padding: '0 16px', color: form.google_maps_url.trim() ? '#fff' : 'var(--text-faint)', fontWeight: 600, cursor: mapResolving || !form.google_maps_url.trim() ? 'default' : 'pointer', fontSize: 13, whiteSpace: 'nowrap' }}>
+                      {mapResolving ? '⏳ Fetching…' : '📍 Fetch exact location'}
+                    </button>
+                  </div>
+                  {mapPin
+                    ? <div style={{ fontSize: 11, color: mapPin.startsWith('📍') ? '#10B981' : '#F59E0B', marginTop: 6 }}>{mapPin}</div>
+                    : <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginTop: 5 }}>Paste the project's Google Maps link, then Fetch to capture its exact coordinates — used for accurate on-call distances. Short share links (maps.app.goo.gl) work too.</div>}
                 </div>
               </div>
 
