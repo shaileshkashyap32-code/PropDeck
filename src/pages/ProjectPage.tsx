@@ -236,6 +236,41 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
 
   const lms: Landmark[] = Array.isArray(project.landmarks) ? project.landmarks : [];
 
+  // ── Landmarks: group by category, sort nearest-first, auto-estimate drive time ──
+  const LM_META: Record<string, { icon: string; label: string }> = {
+    'IT Park': { icon: '💼', label: 'Workplaces & tech parks' },
+    'Airport': { icon: '✈️', label: 'Airport' },
+    'Metro': { icon: '🚇', label: 'Metro & transit' },
+    'School': { icon: '🎓', label: 'Schools & colleges' },
+    'Hospital': { icon: '🏥', label: 'Hospitals' },
+    'Mall': { icon: '🛍️', label: 'Malls & shopping' },
+    'Highway': { icon: '🛣️', label: 'Highways' },
+    'Other': { icon: '📍', label: 'Other landmarks' },
+  };
+  const LM_ORDER = ['IT Park', 'Airport', 'Metro', 'School', 'Hospital', 'Mall', 'Highway', 'Other'];
+  const normType = (t: string) => (LM_ORDER.includes(t) ? t : 'Other');
+  const parseKm = (d: string): number | null => {
+    const m = String(d || '').match(/([\d.]+)/);
+    return m ? parseFloat(m[1]) : null;
+  };
+  // City driving averages ~30 km/h → ~2 min per km.
+  const driveTime = (d: string): string => {
+    const km = parseKm(d);
+    return km != null ? `~${Math.max(1, Math.round(km * 2))} min` : '';
+  };
+  const lmGroups = LM_ORDER
+    .map(type => ({
+      type,
+      items: lms.filter(l => normType(l.type) === type)
+        .sort((a, b) => (parseKm(a.distance) ?? 1e9) - (parseKm(b.distance) ?? 1e9)),
+    }))
+    .filter(g => g.items.length > 0);
+  // Hero highlights: nearest of the categories buyers ask about first.
+  const lmHighlights = ['Airport', 'IT Park', 'School', 'Hospital', 'Metro']
+    .map(type => { const g = lmGroups.find(x => x.type === type); return g ? { type, item: g.items[0] } : null; })
+    .filter((x): x is { type: string; item: Landmark } => x != null)
+    .slice(0, 3);
+
   // ── RENDER ─────────────────────────────────────────────────────────────────
   return (
     <AppShell topBar={nav}>
@@ -343,18 +378,42 @@ export default function ProjectPage({ projectId, user, onBack, onViewProject, ..
             </div>
           )}
 
-          {/* ── LANDMARKS TAB ── */}
+          {/* ── LANDMARKS TAB — grouped by category, nearest-first, with drive times ── */}
           {tab === 'landmarks' && (
             lms.length === 0
               ? <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-faint)' }}>No landmarks added yet.</div>
               : <div>
-                  {lms.map((lm, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(79,70,229,0.1)', borderRadius: 8, padding: '12px 14px', marginBottom: 8, border: '1px solid var(--border)' }}>
-                      <div>
-                        <div style={{ fontSize: 14, marginBottom: 4 }}>{lm.name}</div>
-                        <span style={{ fontSize: 10, background: 'rgba(99,102,241,0.25)', color: 'var(--text-muted)', padding: '2px 8px', borderRadius: 10 }}>{lm.type}</span>
+                  {/* Highlights strip */}
+                  {lmHighlights.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 22 }}>
+                      {lmHighlights.map(({ type, item }) => (
+                        <div key={type} style={{ background: 'rgba(79,70,229,0.12)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
+                          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 5 }}>{LM_META[type].icon} Nearest {({ Airport: 'airport', 'IT Park': 'tech park', School: 'school', Hospital: 'hospital', Metro: 'metro' } as Record<string, string>)[type]}</div>
+                          <div style={{ fontSize: 14, fontWeight: 600 }}>{item.distance}{driveTime(item.distance) ? <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 400 }}> · {driveTime(item.distance)}</span> : null}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Grouped categories */}
+                  {lmGroups.map(g => (
+                    <div key={g.type} style={{ marginBottom: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: 15 }}>{LM_META[g.type].icon}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>{LM_META[g.type].label}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{g.items.length}</span>
                       </div>
-                      <div style={{ color: '#6366F1', fontWeight: 700 }}>{lm.distance}</div>
+                      <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                        {g.items.map((lm, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 14px', background: 'rgba(79,70,229,0.06)', borderTop: i > 0 ? '1px solid rgba(79,70,229,0.12)' : 'none' }}>
+                            <div style={{ fontSize: 14 }}>{lm.name}</div>
+                            <div style={{ textAlign: 'right', color: '#6366F1', fontWeight: 700, fontSize: 13 }}>
+                              {lm.distance}
+                              {driveTime(lm.distance) ? <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: 6 }}>{driveTime(lm.distance)}</span> : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -50,21 +50,15 @@ interface FormData {
   rera_number: string; status: string; possession_date: string
   usp1: string; usp2: string; usp3: string; usp4: string; usp5: string
   pitch_script: string; image_url: string; google_maps_url: string; tags: string
-  lm1_name: string; lm1_dist: string; lm1_type: string
-  lm2_name: string; lm2_dist: string; lm2_type: string
-  lm3_name: string; lm3_dist: string; lm3_type: string
-  lm4_name: string; lm4_dist: string; lm4_type: string
 }
+
+interface LandmarkItem { name: string; distance: string; type: string }
 
 const EMPTY: FormData = {
   name: '', developer: '', location: '', rera_number: '',
   status: 'Launched', possession_date: '',
   usp1: '', usp2: '', usp3: '', usp4: '', usp5: '',
   pitch_script: '', image_url: '', google_maps_url: '', tags: '',
-  lm1_name: '', lm1_dist: '', lm1_type: 'Metro',
-  lm2_name: '', lm2_dist: '', lm2_type: 'School',
-  lm3_name: '', lm3_dist: '', lm3_type: 'Hospital',
-  lm4_name: '', lm4_dist: '', lm4_type: 'IT Park',
 }
 
 const EMPTY_UNIT: UnitConfig = { type: '', price_min: '', price_max: '', sba_min: '', sba_max: '', units_left: '', rate: '' }
@@ -123,6 +117,7 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [errFields, setErrFields] = useState<Set<string>>(new Set())
   const [unitConfigs, setUnitConfigs] = useState<UnitConfig[]>([{ ...EMPTY_UNIT }])
   const [psfRate, setPsfRate] = useState('')
+  const [landmarks, setLandmarks] = useState<LandmarkItem[]>([])
   const [dragUnit, setDragUnit] = useState<number | null>(null)
   const [dragOverUnit, setDragOverUnit] = useState<number | null>(null)
   const [quickFillText, setQuickFillText] = useState('')
@@ -268,11 +263,9 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
       keys.forEach((k, i) => { if (ex.usps[i]) setF(k, ex.usps[i]) })
     }
     if (Array.isArray(ex.landmarks)) {
-      ex.landmarks.slice(0, 4).forEach((lm: any, i: number) => {
-        setF(`lm${i+1}_name` as keyof FormData, lm.name || '')
-        setF(`lm${i+1}_dist` as keyof FormData, lm.distance || '')
-        setF(`lm${i+1}_type` as keyof FormData, lm.type || 'Other')
-      })
+      setLandmarks(ex.landmarks
+        .filter((lm: any) => lm?.name)
+        .map((lm: any) => ({ name: lm.name || '', distance: lm.distance || '', type: LM_TYPES.includes(lm.type) ? lm.type : 'Other' })))
     }
     if (Array.isArray(ex.tags)) setF('tags', ex.tags.join(', '))
     if (Array.isArray(ex.unit_configs) && ex.unit_configs.length > 0) {
@@ -330,7 +323,7 @@ Rules:
 - Prefer an explicit pricing table over a casual mention when both exist.
 - Create one unit_config entry per distinct unit type mentioned
 - For USPs: prioritise facts that a salesperson can say on a live call to different buyer types
-- Include up to 4 landmarks with realistic distances
+- Include all notable landmarks with realistic distances (hospitals, schools, tech parks, malls, metro, airport, highways)
 - Tags: 3-5 short keywords (e.g. Township, Airport Zone, Premium, NRI Friendly, Investment)
 - Return ONLY the JSON object${text ? `\n\nText:\n${text}` : ''}`
 
@@ -380,11 +373,10 @@ Output plain text only — no commentary, no markdown.`
         return `  ${u.type}: ${pMin}${pMax}${sba}`
       })
       .join('\n')
-    const lmText = [1,2,3,4]
-      .map(n => p.landmarks?.[n-1]?.name
-        ? `${p.landmarks[n-1].name} (${p.landmarks[n-1].distance}, ${p.landmarks[n-1].type})`
-        : null)
-      .filter(Boolean).join(', ')
+    const lmText = (p.landmarks || [])
+      .filter((lm: any) => lm?.name)
+      .map((lm: any) => `${lm.name} (${lm.distance}, ${lm.type})`)
+      .join(', ')
     const validConfigs = configs.filter(u => u.price_min)
 
     // Cheapest config = "entry" unit type — used for EMI / entry price / NRI conversion,
@@ -652,11 +644,10 @@ Write ONLY the pitch script. No labels or preamble.`
       usp4: p.usps?.[3] || '', usp5: p.usps?.[4] || '',
       pitch_script: p.pitch_script || '', image_url: p.image_url || '',
       google_maps_url: p.google_maps_url || '', tags: p.tags?.join(', ') || '',
-      lm1_name: p.landmarks?.[0]?.name || '', lm1_dist: p.landmarks?.[0]?.distance || '', lm1_type: p.landmarks?.[0]?.type || 'Metro',
-      lm2_name: p.landmarks?.[1]?.name || '', lm2_dist: p.landmarks?.[1]?.distance || '', lm2_type: p.landmarks?.[1]?.type || 'School',
-      lm3_name: p.landmarks?.[2]?.name || '', lm3_dist: p.landmarks?.[2]?.distance || '', lm3_type: p.landmarks?.[2]?.type || 'Hospital',
-      lm4_name: p.landmarks?.[3]?.name || '', lm4_dist: p.landmarks?.[3]?.distance || '', lm4_type: p.landmarks?.[3]?.type || 'IT Park',
     })
+    setLandmarks(Array.isArray(p.landmarks)
+      ? p.landmarks.filter((lm: any) => lm?.name).map((lm: any) => ({ name: lm.name || '', distance: lm.distance || '', type: LM_TYPES.includes(lm.type) ? lm.type : 'Other' }))
+      : [])
     if (Array.isArray(p.unit_configs) && p.unit_configs.length > 0) {
       setUnitConfigs(p.unit_configs.map((u: any) => ({
         type: u.type || '', price_min: String(u.price_min || ''),
@@ -720,12 +711,9 @@ Write ONLY the pitch script. No labels or preamble.`
     const allPrices = unitConfigsData.flatMap(u => [u.price_min, u.price_max])
     const derivedBhkTypes = [...new Set(unitConfigsData.map(u => u.type))]
 
-    const landmarks = [
-      { name: form.lm1_name, distance: form.lm1_dist, type: form.lm1_type },
-      { name: form.lm2_name, distance: form.lm2_dist, type: form.lm2_type },
-      { name: form.lm3_name, distance: form.lm3_dist, type: form.lm3_type },
-      { name: form.lm4_name, distance: form.lm4_dist, type: form.lm4_type },
-    ].filter(l => l.name)
+    const landmarksData = landmarks
+      .map(l => ({ name: l.name.trim(), distance: l.distance.trim(), type: l.type }))
+      .filter(l => l.name)
 
     const uspsList = [form.usp1, form.usp2, form.usp3, form.usp4, form.usp5].filter(Boolean)
 
@@ -740,7 +728,7 @@ Write ONLY the pitch script. No labels or preamble.`
       bhk_types: derivedBhkTypes,
       unit_configs: unitConfigsData,
       usps: uspsList,
-      landmarks,
+      landmarks: landmarksData,
       pitch_script: form.pitch_script || null,
       image_url: form.image_url || null,
       google_maps_url: form.google_maps_url || null,
@@ -772,7 +760,7 @@ Write ONLY the pitch script. No labels or preamble.`
       : '✅ Project published! AI persona pitches are generating in the background.')
 
     setForm(EMPTY); setEditId(null); setFormLocWarning('')
-    setUnitConfigs([{ ...EMPTY_UNIT }]); setQuickFillText(''); setPsfRate('')
+    setUnitConfigs([{ ...EMPTY_UNIT }]); setQuickFillText(''); setPsfRate(''); setLandmarks([])
     loadProjects(); setSection('projects')
 
     // Fire-and-forget: not awaited, so the UI is already back on the projects
@@ -848,6 +836,11 @@ Write ONLY the pitch script. No labels or preamble.`
     const skipped = unitConfigs.length - eligible.length
     flash(`Applied ₹${rate.toLocaleString('en-IN')}/sqft to ${eligible.length} unit${eligible.length > 1 ? 's' : ''}.${skipped > 0 ? ` ${skipped} skipped (no SBA).` : ''}`)
   }
+  const addLandmark = () => setLandmarks(prev => [...prev, { name: '', distance: '', type: LM_TYPES[0] }])
+  const updateLandmark = (idx: number, field: keyof LandmarkItem, val: string) =>
+    setLandmarks(prev => prev.map((l, i) => i === idx ? { ...l, [field]: val } : l))
+  const removeLandmark = (idx: number) => setLandmarks(prev => prev.filter((_, i) => i !== idx))
+
   const addUnit = () => setUnitConfigs(prev => [...prev, { ...EMPTY_UNIT }])
   const removeUnit = (idx: number) => setUnitConfigs(prev => prev.filter((_, i) => i !== idx))
   // Drag a unit row by its handle and drop it on another to reorder.
@@ -860,7 +853,7 @@ Write ONLY the pitch script. No labels or preamble.`
   })
 
   const resetForm = () => {
-    setEditId(null); setForm(EMPTY); setUnitConfigs([{ ...EMPTY_UNIT }]); setPsfRate('')
+    setEditId(null); setForm(EMPTY); setUnitConfigs([{ ...EMPTY_UNIT }]); setPsfRate(''); setLandmarks([])
     setFormLocWarning(''); setQuickFillText('')
     setAssets([]); setAssetKind(ASSET_KINDS[0].key); setAssetLabel(''); setAssetUrl('')
   }
@@ -1180,18 +1173,30 @@ Write ONLY the pitch script. No labels or preamble.`
 
               {/* ④ LANDMARKS */}
               <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 16 }}>④ Nearby Landmarks</div>
-                {[1,2,3,4].map(n => (
-                  <div key={n} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 0.6fr' : '1fr 0.6fr 0.8fr', gap: 10, marginBottom: 10 }}>
-                    <div><label style={lbl}>Landmark {n}</label><input style={inp} value={(form as any)[`lm${n}_name`]} onChange={e => setF(`lm${n}_name` as any, e.target.value)} placeholder="e.g. Kempegowda Airport" /></div>
-                    <div><label style={lbl}>Distance</label><input style={inp} value={(form as any)[`lm${n}_dist`]} onChange={e => setF(`lm${n}_dist` as any, e.target.value)} placeholder="8 km" /></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)' }}>④ Nearby Landmarks</div>
+                  <button onClick={addLandmark} style={{ background: 'var(--border-strong)', border: '1px solid rgba(79,70,229,0.4)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12 }}>+ Add Landmark</button>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 14 }}>
+                  Add as many as you like — grouped by type on the project page. Distance drives an auto-estimated drive time (e.g. "8 km" → ~16 min).
+                </div>
+                {landmarks.length === 0 && (
+                  <div style={{ fontSize: 12, color: 'var(--text-fainter)', padding: '4px 0 8px' }}>No landmarks yet — click <b>+ Add Landmark</b>.</div>
+                )}
+                {landmarks.map((lm, idx) => (
+                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 0.6fr' : '1fr 0.55fr 0.75fr 36px', gap: 10, marginBottom: 10, alignItems: 'end' }}>
+                    <div><label style={lbl}>Landmark {idx + 1}</label><input style={inp} value={lm.name} onChange={e => updateLandmark(idx, 'name', e.target.value)} placeholder="e.g. Kempegowda Airport" /></div>
+                    <div><label style={lbl}>Distance</label><input style={inp} value={lm.distance} onChange={e => updateLandmark(idx, 'distance', e.target.value)} placeholder="8 km" /></div>
                     {!isMobile && (
                       <div><label style={lbl}>Type</label>
-                        <select style={inp} value={(form as any)[`lm${n}_type`]} onChange={e => setF(`lm${n}_type` as any, e.target.value)}>
+                        <select style={inp} value={lm.type} onChange={e => updateLandmark(idx, 'type', e.target.value)}>
                           {LM_TYPES.map(t => <option key={t} style={{ background: 'var(--bg-raised)' }}>{t}</option>)}
                         </select>
                       </div>
                     )}
+                    <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 1 }}>
+                      <button onClick={() => removeLandmark(idx)} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', borderRadius: 6, width: 32, height: 36, color: '#F87171', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                    </div>
                   </div>
                 ))}
               </div>
