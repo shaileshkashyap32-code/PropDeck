@@ -82,7 +82,7 @@ const rateFromUnit = (priceMin: any, sbaMin: any): string => {
   const p = Number(priceMin), s = Number(sbaMin)
   return p > 0 && s > 0 ? String(Math.round(p / s / 100) * 100) : ''
 }
-const UNIT_TYPES = ['Studio','1BHK','1.5BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Duplex','Penthouse','Villa','Townhouse','Plot']
+const UNIT_TYPES = ['Studio','1BHK','1.5BHK','2BHK','2.5BHK','3BHK','3.5BHK','4BHK','Duplex','Penthouse','Villa','Row house','Plot']
 const LM_TYPES = ['Metro','School','Hospital','IT Park','Mall','Airport','Highway','Other']
 
 const inp: React.CSSProperties = {
