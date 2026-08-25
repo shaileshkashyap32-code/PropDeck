@@ -126,7 +126,6 @@ export default function AdminPanel({ user, onViewProject, ...nav }: Props) {
   const [generatingFill, setGeneratingFill] = useState(false)
   const [extractingFiles, setExtractingFiles] = useState(false)
   const [extractStatus, setExtractStatus] = useState('')
-  const [generatingScript, setGeneratingScript] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   // Assets (brochures/plans/gallery/video) for the project being edited.
   const [assets, setAssets] = useState<ProjectAsset[]>([])
@@ -548,30 +547,6 @@ Return ONLY valid JSON, no markdown fences, no citation numbers inside text. Fol
   }
 
   // ─── Pitch script generation (section ⑥) ─────────────────────────────────
-  const generatePitchScript = async () => {
-    if (!form.name || !form.developer || !form.location) {
-      flash('Fill in Name, Developer, and Location first.', 'err'); return
-    }
-    setGeneratingScript(true)
-    const usps = [form.usp1, form.usp2, form.usp3, form.usp4, form.usp5].filter(Boolean)
-    const unitSummary = unitConfigs.filter(u => u.type && u.price_min)
-      .map(u => `${u.type} from ${formatPrice(Number(u.price_min))}`).join(', ')
-    const prompt = `Expert real estate sales trainer in Bangalore. Write a confident, conversational 4-5 line pitch script (under 80 words) for a salesperson on a live call. First person. Specific numbers. Soft CTA at end.
-
-Project: ${form.name} | Developer: ${form.developer} | Location: ${form.location}
-${unitSummary ? `Units: ${unitSummary}` : ''}
-Status: ${form.status} | Possession: ${form.possession_date || 'TBD'}
-Highlights: ${usps.join(', ')}
-
-Write ONLY the pitch script. No labels or preamble.`
-
-    try {
-      const script = await callGemini(prompt)
-      if (script) { setF('pitch_script', script); flash('✅ Pitch script generated!') }
-      else flash('No output. Try again.', 'err')
-    } catch { flash('API error.', 'err') }
-    setGeneratingScript(false)
-  }
 
   // ─── Location helpers ─────────────────────────────────────────────────────
   const findSimilar = (typed: string, locs: LocItem[]) => {
@@ -1341,30 +1316,6 @@ Write ONLY the pitch script. No labels or preamble.`
                     </button>
                   </>
                 )}
-              </div>
-
-              {/* ⑥ PITCH SCRIPT */}
-              <div style={card}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>⑥ General Pitch Script</span>
-                  <button onClick={generatePitchScript} disabled={generatingScript || !form.name}
-                    style={{ background: 'linear-gradient(135deg,#4F46E5,#9333EA)', border: 'none', borderRadius: 7, padding: '6px 14px', color: '#FFFFFF', fontSize: 12, fontWeight: 600, cursor: generatingScript || !form.name ? 'default' : 'pointer', opacity: !form.name ? 0.4 : 1 }}>
-                    {generatingScript ? '⏳ Generating…' : '✨ Generate with AI'}
-                  </button>
-                </div>
-                <textarea
-                  style={{ ...inp, height: 110, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
-                  value={form.pitch_script} onChange={e => setF('pitch_script', e.target.value)}
-                  placeholder="Write manually or click ✨ Generate with AI above…" />
-                <div style={{ fontSize: 11, color: 'var(--text-fainter)', marginTop: 4 }}>
-                  {form.pitch_script.length} chars · On save, 4 persona pitches (investor/family/first-time/NRI) will be auto-generated separately
-                </div>
-              </div>
-
-              {/* TAGS */}
-              <div style={{ marginBottom: 24 }}>
-                <label style={lbl}>Tags (comma separated)</label>
-                <input style={inp} value={form.tags} onChange={e => setF('tags', e.target.value)} placeholder="Premium, Airport Zone, NRI Friendly, Township, Investment" />
               </div>
 
               {/* SUBMIT */}
